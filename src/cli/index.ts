@@ -1,13 +1,18 @@
 #!/usr/bin/env node
 /**
- * wellinformed CLI — subcommand router (zero runtime dependencies).
- * Phase 0: doctor, version, help. Later phases add: init, room, daemon, trigger,
- * discover, telegram, sources, report, ask, mcp.
+ * wellinformed CLI — subcommand router.
+ *
+ * Phase 0: doctor, version, help.
+ * Phase 1: (runtime checks extended in doctor).
+ * Phase 2: trigger, sources.
+ * Future phases add: init, room, daemon, discover, telegram, report, ask, mcp.
  */
 
 import { doctor } from './commands/doctor.js';
 import { version } from './commands/version.js';
 import { printHelp } from './commands/help.js';
+import { trigger } from './commands/trigger.js';
+import { sources } from './commands/sources.js';
 
 type CommandFn = (args: string[]) => Promise<number> | number;
 
@@ -19,16 +24,16 @@ const commands: Record<string, CommandFn> = {
   help: printHelp,
   '--help': printHelp,
   '-h': printHelp,
+  trigger,
+  sources,
 };
 
 const futureCommands = new Set([
   'init',
   'room',
   'daemon',
-  'trigger',
   'discover',
   'telegram',
-  'sources',
   'report',
   'ask',
   'mcp',
