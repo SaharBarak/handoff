@@ -8,8 +8,8 @@ wellinformed — knowledge graph + research daemon Claude Code plugin
 usage:
   wellinformed <command> [options]
 
-commands (Phase 0 scaffold):
-  doctor                  check runtime prerequisites
+commands (Phase 0/1):
+  doctor [--fix]          check runtime prerequisites (and bootstrap with --fix)
   version                 print version
   help                    this message
 

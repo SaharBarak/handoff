@@ -1,0 +1,383 @@
+/**
+ * Pure domain model for the wellinformed knowledge graph.
+ *
+ * This module owns the vocabulary (Node, Edge, Graph, Room, Wing) and
+ * the pure transformations over it. No I/O, no mutation, no throws —
+ * every operation that can fail returns a `Result<Graph, GraphError>`.
+ *
+ * The on-wire format is NetworkX node-link JSON with `edges="links"`,
+ * which is what graphify writes and reads. See `fromJson` / `toJson`
+ * for the round-trip.
+ *
+ * Design notes
+ * ------------
+ * - Graphs are immutable values. Every transformation returns a NEW
+ *   Graph. Internal state uses plain Maps/Sets for O(1) lookups; we
+ *   rebuild them lazily when the graph is reconstructed from JSON.
+ * - Node and edge collections are stored as arrays in the JSON payload
+ *   (for round-trip fidelity with graphify) and as indexes for
+ *   traversal.
+ * - BFS/DFS/shortestPath are expressed as pure functions that take a
+ *   Graph + options and return a sub-graph.
+ * - Room filtering is a predicate passed down to traversal, not a
+ *   parallel code path.
+ */
+
+import { Result, err, ok } from 'neverthrow';
+import { GraphError } from './errors.js';
+
+// ─────────────────────── types ────────────────────────────
+
+export type NodeId = string;
+export type Room = string;
+export type Wing = string;
+
+/** graphify-required node fields. */
+export interface GraphifyNodeCore {
+  readonly id: NodeId;
+  readonly label: string;
+  readonly file_type: 'code' | 'document' | 'paper' | 'image' | 'rationale';
+  readonly source_file: string;
+}
+
+/** wellinformed-added optional fields. Declared in graphify.validate.OPTIONAL_NODE_FIELDS. */
+export interface WellinformedNodeFields {
+  readonly room?: Room;
+  readonly wing?: Wing;
+  readonly source_uri?: string;
+  readonly fetched_at?: string;
+  readonly embedding_id?: string;
+}
+
+/** A single graph node. Arbitrary extra keys are preserved through round-trip. */
+export type GraphNode = GraphifyNodeCore & WellinformedNodeFields & Readonly<Record<string, unknown>>;
+
+/** A single graph edge. Undirected. */
+export interface GraphEdge {
+  readonly source: NodeId;
+  readonly target: NodeId;
+  readonly relation: string;
+  readonly confidence: 'EXTRACTED' | 'INFERRED' | 'AMBIGUOUS';
+  readonly source_file: string;
+  readonly confidence_score?: number;
+  readonly [extra: string]: unknown;
+}
+
+/** NetworkX node-link JSON envelope. */
+export interface GraphJson {
+  readonly directed: boolean;
+  readonly multigraph: boolean;
+  readonly graph: Readonly<Record<string, unknown>> & { readonly hyperedges?: readonly unknown[] };
+  readonly nodes: readonly GraphNode[];
+  readonly links: readonly GraphEdge[];
+}
+
+/**
+ * Opaque immutable graph value. The `nodes` / `links` arrays and the
+ * `nodeById` / `adjacency` indexes are all frozen on construction, so
+ * no accidental mutation can slip through.
+ *
+ * Callers should treat Graph as a value type: produce new graphs via
+ * the functions in this module rather than reaching into the fields.
+ */
+export interface Graph {
+  readonly json: GraphJson;
+  readonly nodeById: ReadonlyMap<NodeId, GraphNode>;
+  readonly adjacency: ReadonlyMap<NodeId, ReadonlySet<NodeId>>;
+}
+
+/** Search result for traversal queries. */
+export interface Subgraph {
+  readonly nodes: readonly GraphNode[];
+  readonly edges: readonly GraphEdge[];
+}
+
+/** Options for traversal queries. */
+export interface TraversalOptions {
+  readonly depth?: number;
+  /** if present, only nodes in this room are eligible. */
+  readonly room?: Room;
+}
+
+// ─────────────────────── constants ────────────────────────
+
+const REQUIRED_NODE_FIELDS = ['id', 'label', 'file_type', 'source_file'] as const;
+const REQUIRED_EDGE_FIELDS = ['source', 'target', 'relation', 'confidence', 'source_file'] as const;
+
+const EMPTY_JSON: GraphJson = {
+  directed: false,
+  multigraph: false,
+  graph: { hyperedges: [] },
+  nodes: [],
+  links: [],
+};
+
+// ─────────────────────── construction ─────────────────────
+
+/** An empty graph. */
+export const empty = (): Graph => fromJsonUnchecked(EMPTY_JSON);
+
+/**
+ * Parse raw JSON into a validated Graph. Rejects malformed input at
+ * the boundary. Accepts both `links` (graphify's canonical) and
+ * `edges` (for compatibility with older NetworkX JSON dumps).
+ */
+export const fromJson = (raw: unknown, path = '<memory>'): Result<Graph, GraphError> => {
+  if (!raw || typeof raw !== 'object') {
+    return err(GraphError.parseError(path, 'graph root must be an object'));
+  }
+  const obj = raw as Record<string, unknown>;
+  const nodes = Array.isArray(obj.nodes) ? (obj.nodes as GraphNode[]) : [];
+  const links: readonly GraphEdge[] = Array.isArray(obj.links)
+    ? (obj.links as GraphEdge[])
+    : Array.isArray(obj.edges)
+      ? (obj.edges as GraphEdge[])
+      : [];
+  const graph = (typeof obj.graph === 'object' && obj.graph !== null
+    ? (obj.graph as GraphJson['graph'])
+    : { hyperedges: [] }) as GraphJson['graph'];
+
+  // Validate every node. We're strict at the boundary so downstream
+  // domain ops can assume every node has the required fields.
+  for (const n of nodes) {
+    for (const f of REQUIRED_NODE_FIELDS) {
+      if (!n[f]) return err(GraphError.invalidNode(f, n.id));
+    }
+  }
+  for (const e of links) {
+    for (const f of REQUIRED_EDGE_FIELDS) {
+      if (!e[f]) return err(GraphError.invalidEdge(f));
+    }
+  }
+
+  const json: GraphJson = {
+    directed: Boolean(obj.directed),
+    multigraph: Boolean(obj.multigraph),
+    graph,
+    nodes,
+    links,
+  };
+  return ok(fromJsonUnchecked(json));
+};
+
+/** Serialize a Graph to the NetworkX node-link JSON shape. */
+export const toJson = (g: Graph): GraphJson => g.json;
+
+// ─────────────────────── queries ──────────────────────────
+
+export const size = (g: Graph): { nodes: number; edges: number } => ({
+  nodes: g.json.nodes.length,
+  edges: g.json.links.length,
+});
+
+export const getNode = (g: Graph, id: NodeId): GraphNode | undefined => g.nodeById.get(id);
+
+export const hasNode = (g: Graph, id: NodeId): boolean => g.nodeById.has(id);
+
+export const nodesInRoom = (g: Graph, room: Room): readonly GraphNode[] =>
+  g.json.nodes.filter((n) => n.room === room);
+
+export const neighbors = (g: Graph, id: NodeId): readonly GraphNode[] => {
+  const adj = g.adjacency.get(id);
+  if (!adj) return [];
+  const out: GraphNode[] = [];
+  for (const nid of adj) {
+    const n = g.nodeById.get(nid);
+    if (n) out.push(n);
+  }
+  return out;
+};
+
+// ─────────────────────── traversal ────────────────────────
+
+/** Breadth-first traversal from a set of starting nodes. */
+export const bfs = (g: Graph, start: readonly NodeId[], opts: TraversalOptions = {}): Subgraph => {
+  const depth = opts.depth ?? 3;
+  const allow = roomFilter(g, opts.room);
+  const visited = new Set<NodeId>();
+  const frontier: NodeId[] = [];
+  for (const s of start) {
+    if (g.nodeById.has(s) && allow(s)) {
+      visited.add(s);
+      frontier.push(s);
+    }
+  }
+  let current = frontier;
+  for (let d = 0; d < depth; d++) {
+    const next: NodeId[] = [];
+    for (const nid of current) {
+      const adj = g.adjacency.get(nid);
+      if (!adj) continue;
+      for (const m of adj) {
+        if (visited.has(m) || !allow(m)) continue;
+        visited.add(m);
+        next.push(m);
+      }
+    }
+    if (next.length === 0) break;
+    current = next;
+  }
+  return subgraph(g, visited);
+};
+
+/** Depth-first traversal from a set of starting nodes. */
+export const dfs = (g: Graph, start: readonly NodeId[], opts: TraversalOptions = {}): Subgraph => {
+  const depth = opts.depth ?? 3;
+  const allow = roomFilter(g, opts.room);
+  const visited = new Set<NodeId>();
+  const stack: Array<[NodeId, number]> = [];
+  for (let i = start.length - 1; i >= 0; i--) {
+    const s = start[i];
+    if (g.nodeById.has(s) && allow(s)) stack.push([s, 0]);
+  }
+  while (stack.length > 0) {
+    const [nid, d] = stack.pop()!;
+    if (visited.has(nid) || d > depth) continue;
+    visited.add(nid);
+    const adj = g.adjacency.get(nid);
+    if (!adj) continue;
+    for (const m of adj) {
+      if (visited.has(m) || !allow(m)) continue;
+      stack.push([m, d + 1]);
+    }
+  }
+  return subgraph(g, visited);
+};
+
+/** Unweighted shortest path (BFS). Returns an empty array if no path. */
+export const shortestPath = (
+  g: Graph,
+  source: NodeId,
+  target: NodeId,
+  maxHops = 8,
+): readonly NodeId[] => {
+  if (!g.nodeById.has(source) || !g.nodeById.has(target)) return [];
+  if (source === target) return [source];
+  const prev = new Map<NodeId, NodeId>();
+  const visited = new Set<NodeId>([source]);
+  const queue: NodeId[] = [source];
+  let hops = 0;
+  while (queue.length > 0 && hops <= maxHops) {
+    const layerSize = queue.length;
+    for (let i = 0; i < layerSize; i++) {
+      const nid = queue.shift()!;
+      const adj = g.adjacency.get(nid);
+      if (!adj) continue;
+      for (const m of adj) {
+        if (visited.has(m)) continue;
+        visited.add(m);
+        prev.set(m, nid);
+        if (m === target) return reconstruct(prev, source, target);
+        queue.push(m);
+      }
+    }
+    hops++;
+  }
+  return [];
+};
+
+// ─────────────────────── mutators (pure) ──────────────────
+
+/**
+ * Insert or update a node. Returns a new graph with the node applied.
+ * Existing attributes are merged shallowly — pass only the fields you
+ * want to change.
+ */
+export const upsertNode = (g: Graph, node: GraphNode): Result<Graph, GraphError> => {
+  for (const f of REQUIRED_NODE_FIELDS) {
+    if (!node[f]) return err(GraphError.invalidNode(f, node.id));
+  }
+  const existing = g.nodeById.get(node.id);
+  const merged: GraphNode = existing ? { ...existing, ...node } : { ...node };
+  const nodes = existing
+    ? g.json.nodes.map((n) => (n.id === node.id ? merged : n))
+    : [...g.json.nodes, merged];
+  return ok(fromJsonUnchecked({ ...g.json, nodes }));
+};
+
+/**
+ * Insert or update an edge. Both endpoints must already exist. Edges
+ * are undirected — the same pair (a,b) and (b,a) refer to the same
+ * edge, keyed by the sorted pair.
+ */
+export const upsertEdge = (g: Graph, edge: GraphEdge): Result<Graph, GraphError> => {
+  for (const f of REQUIRED_EDGE_FIELDS) {
+    if (!edge[f]) return err(GraphError.invalidEdge(f));
+  }
+  if (!g.nodeById.has(edge.source)) return err(GraphError.danglingEdge(edge.source, edge.target));
+  if (!g.nodeById.has(edge.target)) return err(GraphError.danglingEdge(edge.source, edge.target));
+
+  const key = edgeKey(edge.source, edge.target);
+  const existingIdx = g.json.links.findIndex((e) => edgeKey(e.source, e.target) === key);
+  if (existingIdx >= 0) {
+    const merged: GraphEdge = { ...g.json.links[existingIdx], ...edge };
+    const links = g.json.links.map((e, i) => (i === existingIdx ? merged : e));
+    return ok(fromJsonUnchecked({ ...g.json, links }));
+  }
+  return ok(fromJsonUnchecked({ ...g.json, links: [...g.json.links, edge] }));
+};
+
+/** Remove a node and all edges incident to it. */
+export const removeNode = (g: Graph, id: NodeId): Result<Graph, GraphError> => {
+  if (!g.nodeById.has(id)) return err(GraphError.nodeNotFound(id));
+  const nodes = g.json.nodes.filter((n) => n.id !== id);
+  const links = g.json.links.filter((e) => e.source !== id && e.target !== id);
+  return ok(fromJsonUnchecked({ ...g.json, nodes, links }));
+};
+
+// ─────────────────────── internals ────────────────────────
+
+/** Build the indexed Graph view from a JSON envelope. Private. */
+const fromJsonUnchecked = (json: GraphJson): Graph => {
+  const nodeById = new Map<NodeId, GraphNode>();
+  const adjacency = new Map<NodeId, Set<NodeId>>();
+  for (const n of json.nodes) {
+    nodeById.set(n.id, n);
+    if (!adjacency.has(n.id)) adjacency.set(n.id, new Set());
+  }
+  for (const e of json.links) {
+    const a = adjacency.get(e.source) ?? new Set<NodeId>();
+    const b = adjacency.get(e.target) ?? new Set<NodeId>();
+    a.add(e.target);
+    b.add(e.source);
+    adjacency.set(e.source, a);
+    adjacency.set(e.target, b);
+  }
+  // Freeze to make mutation-via-cast impossible.
+  return Object.freeze({ json, nodeById, adjacency });
+};
+
+const roomFilter =
+  (g: Graph, room: Room | undefined): ((id: NodeId) => boolean) =>
+  (id) => {
+    if (!room) return true;
+    return g.nodeById.get(id)?.room === room;
+  };
+
+const subgraph = (g: Graph, nodeIds: ReadonlySet<NodeId>): Subgraph => {
+  const nodes: GraphNode[] = [];
+  for (const id of nodeIds) {
+    const n = g.nodeById.get(id);
+    if (n) nodes.push(n);
+  }
+  const edges = g.json.links.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
+  return { nodes, edges };
+};
+
+const edgeKey = (a: NodeId, b: NodeId): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
+
+const reconstruct = (
+  prev: Map<NodeId, NodeId>,
+  source: NodeId,
+  target: NodeId,
+): readonly NodeId[] => {
+  const path: NodeId[] = [target];
+  let cur = target;
+  while (cur !== source) {
+    const p = prev.get(cur);
+    if (!p) return [];
+    path.push(p);
+    cur = p;
+  }
+  return path.reverse();
+};
