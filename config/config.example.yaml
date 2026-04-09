@@ -1,0 +1,75 @@
+# wellinformed — example configuration.
+# Copy to ~/.wellinformed/config.yaml and fill in secrets.
+# Never commit real bot tokens or chat ids.
+
+daemon:
+  interval_seconds: 86400        # 1 day default
+  max_parallel_sources: 8
+  discovery_cadence: 5           # every Nth iteration runs discovery mode
+  round_robin_rooms: true        # rotate through rooms one per iteration vs. all-at-once
+
+embeddings:
+  model: Xenova/all-MiniLM-L6-v2
+  dim: 384
+  cache_dir: ~/.wellinformed/models
+
+graph:
+  # forked graphify sidecar — Phase 1
+  path: ~/.wellinformed/graph
+  python_venv: ~/.wellinformed/.venv
+  schema_version: 1
+
+vectors:
+  # sqlite-vec table shared across rooms; room is a column, not a separate DB
+  path: ~/.wellinformed/vectors.db
+
+rooms:
+  default_room: default
+  auto_detect: true              # classify incoming items to the best-matching room
+  auto_classify_threshold: 0.70  # below this → unassigned holding room
+  unassigned_holding_room: unassigned
+  tunnels:
+    enabled: true
+    min_cluster_size: 3          # need ≥3 similar nodes across rooms to form a tunnel
+    similarity_threshold: 0.80
+
+telegram:
+  enabled: false
+  bot_token: ""                  # @BotFather
+  chat_id: ""                    # your numeric user id (get from @userinfobot)
+
+  outbound:
+    # Phase 7a — daemon digests
+    digest_after_iteration: true
+    one_message_per_room: true
+    include_top_n: 3
+
+  capture:
+    # Phase 7b — forward-anything ingestion
+    enabled: true
+    max_depth: 2                 # how far to follow references when "digging deeper"
+    follow_arxiv: true
+    follow_github: true
+    follow_generic_urls: true
+    ocr_images: true             # OCR screenshots from your daily scroll
+    vision_fallback: true        # use Claude vision if OCR yields too little text
+    ambiguous_room_prompt: true  # ask you interactively if classification is ambiguous
+
+  inbound_commands:
+    # Phase 7c — query from your phone
+    enabled: true
+    allowed: ["ask", "report", "trigger", "status", "rooms", "pending"]
+
+sources:
+  # Phase 3 — shared registry. Room-specific overrides can live under rooms/<room>/sources.yaml
+  enabled:
+    - arxiv
+    - github_trending
+    - star_history
+    - oss_insight
+    - ecosystems_timeline
+    - gitstar_ranking
+    - hn_algolia
+    - papers_with_code
+    - generic_rss
+  disabled: []

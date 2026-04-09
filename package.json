@@ -1,0 +1,41 @@
+{
+  "name": "wellinformed",
+  "version": "0.0.1",
+  "description": "Claude Code plugin — queryable, embeddings-backed knowledge graph fed by a research daemon and your daily scroll (via Telegram). Rooms-scoped, shared tools.",
+  "type": "module",
+  "bin": {
+    "wellinformed": "./bin/wellinformed.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "doctor": "node bin/wellinformed.js doctor",
+    "start": "node bin/wellinformed.js",
+    "test": "echo \"no tests yet\" && exit 0"
+  },
+  "files": [
+    "bin/**",
+    "dist/**",
+    ".claude-plugin/**",
+    ".claude/**",
+    "config/config.example.yaml"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "claude-code",
+    "knowledge-graph",
+    "research-agent",
+    "mcp",
+    "embeddings",
+    "semantic-search",
+    "telegram-bot"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  },
+  "dependencies": {}
+}
