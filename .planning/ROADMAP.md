@@ -1,103 +1,69 @@
-# Roadmap: wellinformed v1.0
+# Roadmap: wellinformed v1.1
 
-**Milestone:** v1.0 Ship-Ready
-**Phases:** 7-10 (continues from v0.x which ended at Phase 6)
-**Requirements:** 29 mapped
+**Milestone:** v1.1 Close Competitive Gaps
+**Phases:** 11-14 (continues from v1.0 which ended at Phase 10)
+**Requirements:** 20 mapped
 
-## Phase 7: Telegram Bridge
+## Phase 11: Session Management + Biomimetic Memory
 
-**Goal:** Users can forward links to a Telegram bot for ingestion, receive daily digests, and query the graph from their phone.
+**Goal:** Session captures consolidate automatically, old sessions decay, retrieval prioritizes recent + relevant content. Closes the claude-mem Endless Mode gap.
 
-**Requirements:** TELE-01, TELE-02, TELE-03, TELE-04, TELE-05, TELE-06
-
-**Success criteria:**
-1. Forwarding a URL to the bot creates a new node in the correct room within 30 seconds
-2. Daily digest message arrives after daemon tick with top-3 new items per room
-3. Sending "ask embeddings" to the bot returns search results formatted for mobile
-4. Bot token + chat_id configured via config.yaml, validated by `wellinformed doctor`
-
-**Deliverables:**
-- `src/telegram/bot.ts` — Telegram Bot API client (long-polling)
-- `src/telegram/capture.ts` — URL → room classification → ingest
-- `src/telegram/digest.ts` — Post-tick summary formatting + send
-- `src/telegram/commands.ts` — Inbound command routing (ask, report, trigger, status, rooms)
-- `src/cli/commands/telegram.ts` — setup / test / capture-start
-- `tests/phase7.telegram.test.ts`
-
-## Phase 8: Source Adapters Expansion
-
-**Goal:** 10 new source adapters covering Reddit, Dev.to, Product Hunt, Ecosyste.ms, GitHub Releases, npm trending, Twitter/X, YouTube transcripts, podcasts. All wired into the discovery loop.
-
-**Requirements:** ADPT-01 through ADPT-10
+**Requirements:** SESS-01..05
 
 **Success criteria:**
-1. `wellinformed discover --room homelab` suggests Reddit, Dev.to, and other new adapters based on keywords
-2. `wellinformed trigger` fetches from at least 5 new adapter types without errors
-3. Each new adapter has at least one test verifying fetch + parse + ContentItem output
-4. Discovery loop's KNOWN_CHANNELS includes all 10 new adapter types
+1. After 50+ session captures, consolidation runs automatically and produces summary nodes
+2. Old individual session nodes are removed, graph node count stabilizes
+3. Search results rank recent sessions higher than month-old ones
+4. `wellinformed report` shows session consolidation stats
 
-**Deliverables:**
-- `src/infrastructure/sources/reddit.ts`
-- `src/infrastructure/sources/devto.ts`
-- `src/infrastructure/sources/product-hunt.ts`
-- `src/infrastructure/sources/ecosystems-timeline.ts`
-- `src/infrastructure/sources/github-releases.ts`
-- `src/infrastructure/sources/npm-trending.ts`
-- `src/infrastructure/sources/twitter-search.ts`
-- `src/infrastructure/sources/youtube-transcript.ts`
-- `src/infrastructure/sources/podcast-rss.ts`
-- Updated `src/application/discover.ts` with KNOWN_CHANNELS entries
-- `tests/phase8.adapters.test.ts`
+## Phase 12: Multimodal Ingestion
 
-## Phase 9: Visualization & Export
+**Goal:** wellinformed can ingest images (metadata + OCR), audio (transcription), and PDFs (text extraction). Closes the Cognee multimodal gap.
 
-**Goal:** Interactive HTML graph visualization via graphify's Python sidecar with Leiden clustering, Obsidian vault export, and production multi-room tunnel detection.
-
-**Requirements:** VIZ-01 through VIZ-06
+**Requirements:** MULTI-01..05
 
 **Success criteria:**
-1. `wellinformed viz` generates an interactive HTML file viewable in a browser with community-colored nodes
-2. Nodes are clickable and link to their source_uri
-3. `wellinformed export obsidian --room homelab` produces a vault with one .md file per node and backlinks for edges
-4. Running with 2 rooms shows at least one tunnel candidate in the report
+1. `wellinformed sources add` accepts image/audio/PDF source kinds
+2. Image files produce nodes with extracted alt-text, EXIF data, or OCR text
+3. Audio files produce nodes with transcribed text
+4. PDF files produce nodes with extracted text, chunked and embedded
+5. All multimodal content flows through the standard chunk → embed → index pipeline
 
-**Deliverables:**
-- `src/cli/commands/viz.ts` — shells out to graphify's Python export.to_html
-- `src/cli/commands/export-obsidian.ts` — generates Obsidian vault
-- `src/infrastructure/graphify-sidecar.ts` — Python sidecar wrapper for cluster + export
-- `tests/phase9.viz.test.ts`
+## Phase 13: Web Dashboard
 
-## Phase 10: Distribution & CI/CD
+**Goal:** A browser-based read-only dashboard showing the live knowledge graph with search, room filter, and node inspector. Closes the mcp-memory-service web dashboard gap.
 
-**Goal:** wellinformed is installable from npm, has CI/CD, and ships a Docker image. Users go from zero to running in one command.
-
-**Requirements:** DIST-01 through DIST-07
+**Requirements:** DASH-01..06
 
 **Success criteria:**
-1. `npx wellinformed doctor` works on a clean machine with Node 20+ and Python 3.10+
-2. `npm i -g wellinformed && wellinformed init` works end-to-end
-3. GitHub Actions runs tests on every push and PR, blocks merge on failure
-4. `git tag v1.0.0 && git push --tags` triggers npm publish + Docker build
-5. `docker run saharbarak/wellinformed daemon start` runs the daemon in a container
-6. README shows npm/npx as primary install path
+1. `wellinformed dashboard` opens a browser to localhost:3737
+2. Graph renders with vis.js, nodes colored by room, edges visible
+3. Search box finds nodes semantically, highlights matches
+4. Room sidebar shows counts, click to filter
+5. Click a node → inspector shows all attributes + neighbors
+6. Graph refreshes automatically on interval
 
-**Deliverables:**
-- `.github/workflows/ci.yml` — test + build on push/PR
-- `.github/workflows/release.yml` — npm publish + Docker build on tag
-- `Dockerfile` — multi-stage build (Node + Python + graphify)
-- Updated `package.json` (prepublish script, files list, bin entry)
-- Updated `README.md` install section
+## Phase 14: Real ONNX IR Benchmarks
+
+**Goal:** Run the labeled corpus through real all-MiniLM-L6-v2 embeddings and publish honest P@K, R@K, MRR, NDCG numbers. Proves wellinformed's semantic quality.
+
+**Requirements:** BENCH-01..04
+
+**Success criteria:**
+1. Benchmark test downloads and uses real Xenova all-MiniLM-L6-v2 (not fixture embedder)
+2. IR metrics (P@5, R@5, MRR, NDCG@5) reported with actual semantic similarity
+3. Latency includes ONNX inference time, not just sqlite-vec
+4. docs/BENCHMARKS.md published with methodology + reproducibility
 
 ## Phase Summary
 
 | Phase | Name | Requirements | Success Criteria |
 |-------|------|-------------|------------------|
-| 7 | Telegram Bridge | TELE-01..06 (6) | 4 |
-| 8 | Adapter Expansion | ADPT-01..10 (10) | 4 |
-| 9 | Visualization & Export | VIZ-01..06 (6) | 4 |
-| 10 | Distribution & CI/CD | DIST-01..07 (7) | 6 |
-| **Total** | | **29** | **18** |
+| 11 | Session Management | SESS-01..05 (5) | 4 |
+| 12 | Multimodal Ingestion | MULTI-01..05 (5) | 5 |
+| 13 | Web Dashboard | DASH-01..06 (6) | 6 |
+| 14 | Real ONNX Benchmarks | BENCH-01..04 (4) | 4 |
+| **Total** | | **20** | **19** |
 
 ---
 *Roadmap created: 2026-04-12*
-*Last updated: 2026-04-12 after initial creation*
