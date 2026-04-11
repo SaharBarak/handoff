@@ -13,6 +13,7 @@ import { version } from './commands/version.js';
 import { printHelp } from './commands/help.js';
 import { trigger } from './commands/trigger.js';
 import { sources } from './commands/sources.js';
+import { mcp } from './commands/mcp.js';
 
 type CommandFn = (args: string[]) => Promise<number> | number;
 
@@ -26,6 +27,7 @@ const commands: Record<string, CommandFn> = {
   '-h': printHelp,
   trigger,
   sources,
+  mcp,
 };
 
 const futureCommands = new Set([
@@ -36,7 +38,6 @@ const futureCommands = new Set([
   'telegram',
   'report',
   'ask',
-  'mcp',
 ]);
 
 async function main(): Promise<number> {
