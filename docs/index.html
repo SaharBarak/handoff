@@ -4,285 +4,343 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>wellinformed — persistent research memory for AI agents</title>
-  <meta name="description" content="MCP-native skill for Claude Code, Codex, OpenClaw. Knowledge graph + embeddings. Your agent stops guessing." />
+  <meta name="description" content="MCP-native skill for Claude Code, Codex, OpenClaw. Knowledge graph + embeddings + active source fetching." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #1a1a2e;
-      --bg-dark: #0f0f23;
-      --bg-card: #16213e;
-      --accent-green: #00d26a;
-      --accent-blue: #00b4d8;
-      --accent-purple: #9b5de5;
-      --accent-orange: #ff9e00;
-      --accent-pink: #f72585;
-      --accent-yellow: #ffd60a;
-      --text: #e0e0e0;
-      --text-dim: #8892b0;
-      --text-bright: #ffffff;
-      --border: #233554;
-      --font-pixel: 'Press Start 2P', monospace;
-      --font-body: 'Inter', -apple-system, sans-serif;
-      --font-mono: 'JetBrains Mono', monospace;
+      --bg: #0c0c14;
+      --bg-elevated: #141420;
+      --bg-glass: rgba(20, 20, 32, 0.65);
+      --accent: #34d399;
+      --accent-warm: #f59e0b;
+      --accent-cool: #38bdf8;
+      --accent-rose: #fb7185;
+      --text: #f0f0f5;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      --border: rgba(255,255,255,0.06);
+      --border-glass: rgba(255,255,255,0.1);
+      --glow-green: rgba(52,211,153,0.15);
+      --font: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono: 'JetBrains Mono', 'SF Mono', monospace;
+      --max-w: 1200px;
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     body {
-      background: var(--bg-dark);
+      background: var(--bg);
       color: var(--text);
-      font-family: var(--font-body);
+      font-family: var(--font);
+      -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
     }
 
-    /* --- Pixel grid background --- */
-    body::before {
+    /* Subtle dot grid — pointer-events-none, fixed, no repaints on scroll */
+    body::after {
       content: '';
       position: fixed;
       inset: 0;
-      background-image:
-        linear-gradient(rgba(0,180,216,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,180,216,0.03) 1px, transparent 1px);
-      background-size: 32px 32px;
+      background-image: radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 24px 24px;
       pointer-events: none;
       z-index: 0;
     }
 
+    a { color: inherit; text-decoration: none; }
+
     /* --- Sprite animation --- */
-    .welly-sprite {
-      width: 256px;
-      height: 256px;
+    .sprite {
+      width: 200px;
+      height: 200px;
       background: url('welly-idle.png') 0 0;
-      background-size: 1280px 1280px;
-      animation: idle 2s steps(1) infinite;
+      background-size: 1000px 1000px;
       image-rendering: pixelated;
+      animation: idle-cycle 2.5s steps(1) infinite;
+      filter: drop-shadow(0 8px 24px rgba(52,211,153,0.2));
     }
 
-    @keyframes idle {
-      0%    { background-position: 0 0; }
-      4%    { background-position: -256px 0; }
-      8%    { background-position: -512px 0; }
-      12%   { background-position: -768px 0; }
-      16%   { background-position: -1024px 0; }
-      20%   { background-position: 0 -256px; }
-      24%   { background-position: -256px -256px; }
-      28%   { background-position: -512px -256px; }
-      32%   { background-position: -768px -256px; }
-      36%   { background-position: -1024px -256px; }
-      40%   { background-position: 0 -512px; }
-      44%   { background-position: -256px -512px; }
-      48%   { background-position: -512px -512px; }
-      52%   { background-position: -768px -512px; }
-      56%   { background-position: -1024px -512px; }
-      60%   { background-position: 0 -768px; }
-      64%   { background-position: -256px -768px; }
-      68%   { background-position: -512px -768px; }
-      72%   { background-position: -768px -768px; }
-      76%   { background-position: -1024px -768px; }
-      80%   { background-position: 0 -1024px; }
-      84%   { background-position: -256px -1024px; }
-      88%   { background-position: -512px -1024px; }
-      92%   { background-position: -768px -1024px; }
-      96%   { background-position: -1024px -1024px; }
+    @keyframes idle-cycle {
+      0%   { background-position: 0 0; }
+      4%   { background-position: -200px 0; }
+      8%   { background-position: -400px 0; }
+      12%  { background-position: -600px 0; }
+      16%  { background-position: -800px 0; }
+      20%  { background-position: 0 -200px; }
+      24%  { background-position: -200px -200px; }
+      28%  { background-position: -400px -200px; }
+      32%  { background-position: -600px -200px; }
+      36%  { background-position: -800px -200px; }
+      40%  { background-position: 0 -400px; }
+      44%  { background-position: -200px -400px; }
+      48%  { background-position: -400px -400px; }
+      52%  { background-position: -600px -400px; }
+      56%  { background-position: -800px -400px; }
+      60%  { background-position: 0 -600px; }
+      64%  { background-position: -200px -600px; }
+      68%  { background-position: -400px -600px; }
+      72%  { background-position: -600px -600px; }
+      76%  { background-position: -800px -600px; }
+      80%  { background-position: 0 -800px; }
+      84%  { background-position: -200px -800px; }
+      88%  { background-position: -400px -800px; }
+      92%  { background-position: -600px -800px; }
+      96%  { background-position: -800px -800px; }
     }
 
-    /* --- Hero --- */
+    /* --- Liquid glass panel --- */
+    .glass {
+      background: var(--bg-glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-glass);
+      border-radius: 16px;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.06),
+        0 4px 24px rgba(0,0,0,0.3);
+    }
+
+    /* --- Hero: asymmetric split --- */
     .hero {
       min-height: 100dvh;
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 2rem;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 3rem;
       align-items: center;
-      max-width: 1100px;
+      max-width: var(--max-w);
       margin: 0 auto;
-      padding: 2rem;
+      padding: 3rem 2.5rem;
       position: relative;
       z-index: 1;
     }
 
     @media (max-width: 768px) {
-      .hero { grid-template-columns: 1fr; text-align: center; }
-      .hero-right { justify-self: center; }
+      .hero {
+        grid-template-columns: 1fr;
+        padding: 4rem 1.5rem 2rem;
+        gap: 2rem;
+      }
+      .hero-right { justify-self: center; order: -1; }
     }
 
     .hero h1 {
-      font-family: var(--font-pixel);
-      font-size: clamp(1rem, 2.5vw, 1.5rem);
-      line-height: 2;
-      color: var(--accent-green);
-      margin-bottom: 1rem;
-      text-shadow: 0 0 20px rgba(0,210,106,0.3);
+      font-size: clamp(2rem, 4.5vw, 3.25rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 1.25rem;
     }
 
-    .hero p {
+    .hero h1 .highlight {
+      background: linear-gradient(135deg, var(--accent), var(--accent-cool));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
       font-size: 1.0625rem;
-      color: var(--text-dim);
-      line-height: 1.8;
+      color: var(--text-secondary);
+      line-height: 1.75;
       max-width: 480px;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.75rem;
     }
 
-    .social-badges {
+    .badges {
       display: flex;
       gap: 10px;
-      align-items: center;
+      flex-wrap: wrap;
       margin-bottom: 1.5rem;
-      flex-wrap: wrap;
     }
 
-    @media (max-width: 768px) { .social-badges { justify-content: center; } }
-
-    .hero-btns {
-      display: flex;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-    }
-
-    @media (max-width: 768px) { .hero-btns { justify-content: center; } }
+    .btn-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 
     .btn {
       display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
-      padding: 0.625rem 1.25rem;
-      border-radius: 6px;
+      gap: 0.4rem;
+      padding: 0.65rem 1.35rem;
+      border-radius: 10px;
       font-size: 0.875rem;
       font-weight: 600;
-      text-decoration: none;
+      font-family: var(--font);
       border: none;
       cursor: pointer;
-      transition: transform 0.1s, box-shadow 0.2s;
+      transition: transform 0.12s var(--ease), box-shadow 0.25s var(--ease);
     }
 
-    .btn:active { transform: scale(0.97); }
-    .btn-green { background: var(--accent-green); color: var(--bg-dark); }
-    .btn-green:hover { box-shadow: 0 0 16px rgba(0,210,106,0.4); }
-    .btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border); }
-    .btn-outline:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+    .btn:active { transform: translateY(1px) scale(0.98); }
 
-    /* --- Stat bar (RPG-style) --- */
-    .stat-bar {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1.25rem 1.5rem;
-      margin-top: 1.5rem;
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg);
     }
 
-    .stat-bar h3 {
-      font-family: var(--font-pixel);
-      font-size: 0.5rem;
-      color: var(--accent-yellow);
+    .btn-primary:hover { box-shadow: 0 0 0 4px var(--glow-green), 0 4px 16px var(--glow-green); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border-glass);
+    }
+
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* --- Stat HUD --- */
+    .hud {
+      padding: 1.5rem;
+      margin-top: 1.25rem;
+    }
+
+    .hud-title {
+      font-size: 0.6875rem;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 2px;
+      letter-spacing: 0.12em;
+      color: var(--accent-warm);
       margin-bottom: 1rem;
     }
 
-    .stats-grid {
+    .hud-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 0.75rem;
+      gap: 1rem;
     }
 
-    .stat-item {
-      text-align: center;
-    }
+    .hud-stat { text-align: center; }
 
-    .stat-value {
-      font-family: var(--font-mono);
-      font-size: 1.5rem;
+    .hud-val {
+      font-family: var(--mono);
+      font-size: 1.75rem;
       font-weight: 700;
+      line-height: 1;
     }
 
-    .stat-label {
-      font-size: 0.6875rem;
-      color: var(--text-dim);
+    .hud-label {
+      font-size: 0.625rem;
+      font-weight: 500;
       text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-top: 2px;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-top: 0.375rem;
     }
 
-    .c-green { color: var(--accent-green); }
-    .c-blue { color: var(--accent-blue); }
-    .c-purple { color: var(--accent-purple); }
-    .c-orange { color: var(--accent-orange); }
-    .c-pink { color: var(--accent-pink); }
-    .c-yellow { color: var(--accent-yellow); }
+    .bar {
+      height: 4px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 2px;
+      margin-top: 0.5rem;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      animation: fillBar 1.2s var(--ease) forwards;
+      transform-origin: left;
+    }
+
+    @keyframes fillBar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
     /* --- Sections --- */
     section {
-      max-width: 1100px;
+      max-width: var(--max-w);
       margin: 0 auto;
-      padding: 5rem 2rem;
+      padding: 6rem 2.5rem;
       position: relative;
       z-index: 1;
     }
 
-    .section-title {
-      font-family: var(--font-pixel);
-      font-size: 0.75rem;
-      color: var(--accent-blue);
+    @media (max-width: 768px) { section { padding: 3.5rem 1.5rem; } }
+
+    .label {
+      font-size: 0.6875rem;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 3px;
+      letter-spacing: 0.14em;
       margin-bottom: 0.75rem;
     }
 
     section h2 {
-      font-size: 1.75rem;
+      font-size: clamp(1.5rem, 3vw, 2.25rem);
       font-weight: 700;
+      letter-spacing: -0.02em;
       margin-bottom: 0.5rem;
     }
 
-    section > p {
-      color: var(--text-dim);
-      max-width: 60ch;
-      margin-bottom: 2.5rem;
+    section > p.desc {
+      color: var(--text-secondary);
+      max-width: 55ch;
+      line-height: 1.7;
+      margin-bottom: 3rem;
     }
 
-    /* --- Quest log (feature list) --- */
-    .quests {
+    /* --- Feature zig-zag (not 3-col equal cards) --- */
+    .zigzag {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 1rem;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 1.5rem;
     }
 
-    .quest {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1.25rem 1.5rem;
-      transition: border-color 0.2s, transform 0.15s;
+    @media (max-width: 768px) { .zigzag { grid-template-columns: 1fr; } }
+
+    .zigzag .item {
+      padding: 2rem;
+      transition: border-color 0.3s var(--ease), transform 0.2s var(--ease);
     }
 
-    .quest:hover { border-color: var(--accent-blue); transform: translateY(-2px); }
+    .zigzag .item:hover {
+      border-color: var(--accent);
+      transform: translateY(-3px);
+    }
 
-    .quest-tag {
-      font-family: var(--font-pixel);
-      font-size: 0.4375rem;
+    /* Every other item spans the narrow column */
+    .zigzag .item:nth-child(even) { grid-column: 2; }
+    .zigzag .item:nth-child(odd) { grid-column: 1; }
+    @media (max-width: 768px) { .zigzag .item:nth-child(n) { grid-column: 1; } }
+
+    .item-tag {
+      font-size: 0.5625rem;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 2px;
-      margin-bottom: 0.625rem;
+      letter-spacing: 0.12em;
+      margin-bottom: 0.75rem;
       display: inline-block;
     }
 
-    .quest h3 {
-      font-size: 1rem;
+    .item h3 {
+      font-size: 1.0625rem;
       font-weight: 600;
       margin-bottom: 0.375rem;
     }
 
-    .quest p {
+    .item p {
       font-size: 0.8125rem;
-      color: var(--text-dim);
-      line-height: 1.6;
+      color: var(--text-muted);
+      line-height: 1.65;
     }
 
-    /* --- MCP tools (terminal-style) --- */
+    /* --- Terminal: spotlight border --- */
+    .terminal-wrap {
+      max-width: 720px;
+      padding: 1px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-cool), var(--border));
+      background-size: 200% 200%;
+      animation: borderShift 6s ease infinite;
+    }
+
+    @keyframes borderShift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
     .terminal {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
+      background: var(--bg-elevated);
+      border-radius: 13px;
       overflow: hidden;
     }
 
@@ -290,300 +348,287 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 10px 14px;
-      background: rgba(0,0,0,0.3);
-      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      background: rgba(0,0,0,0.25);
     }
 
-    .terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
-    .td-red { background: var(--accent-pink); }
-    .td-yellow { background: var(--accent-yellow); }
-    .td-green { background: var(--accent-green); }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-r { background: var(--accent-rose); }
+    .dot-y { background: var(--accent-warm); }
+    .dot-g { background: var(--accent); }
 
     .terminal-body {
+      padding: 1.25rem 1.5rem;
+      font-family: var(--mono);
+      font-size: 0.8125rem;
+      line-height: 1.85;
+    }
+
+    .tg { color: var(--accent); }
+    .tb { color: var(--accent-cool); }
+    .to { color: var(--accent-warm); }
+    .tp { color: var(--accent-rose); }
+    .td { color: var(--text-muted); }
+
+    /* --- Tools grid (2-col asymmetric) --- */
+    .tools-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+
+    @media (max-width: 640px) { .tools-grid { grid-template-columns: 1fr; } }
+
+    .tool-row {
+      display: flex;
+      gap: 1rem;
       padding: 1rem 1.25rem;
-      font-family: var(--font-mono);
-      font-size: 0.8125rem;
-      line-height: 1.8;
-    }
-
-    .t-green { color: var(--accent-green); }
-    .t-blue { color: var(--accent-blue); }
-    .t-dim { color: var(--text-dim); }
-    .t-orange { color: var(--accent-orange); }
-    .t-purple { color: var(--accent-purple); }
-
-    /* --- Comparison table --- */
-    .comparison { overflow-x: auto; }
-
-    .comparison table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.8125rem;
-      min-width: 650px;
-    }
-
-    .comparison th {
-      font-family: var(--font-pixel);
-      font-size: 0.4375rem;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      color: var(--accent-yellow);
-      padding: 0.75rem;
-      text-align: left;
       border-bottom: 1px solid var(--border);
+      transition: background 0.2s;
     }
 
-    .comparison td {
-      padding: 0.625rem 0.75rem;
-      border-bottom: 1px solid var(--border);
+    .tool-row:hover { background: rgba(52,211,153,0.03); }
+
+    .tool-name {
+      font-family: var(--mono);
+      font-size: 0.8125rem;
+      color: var(--accent);
+      white-space: nowrap;
+      min-width: 120px;
+      flex-shrink: 0;
     }
 
-    .comparison td:first-child { font-weight: 600; color: var(--text); }
-    .yes { color: var(--accent-green); }
-    .no { color: var(--text-dim); }
+    .tool-desc {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+    }
+
+    /* --- Platform pills --- */
+    .platforms {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 2rem;
+    }
+
+    .pill {
+      padding: 0.75rem 1.5rem;
+      border-radius: 100px;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      transition: transform 0.15s var(--ease), border-color 0.3s;
+    }
+
+    .pill:hover { transform: translateY(-2px); border-color: var(--accent); }
 
     /* --- CTA --- */
     .cta {
       text-align: center;
-      padding: 5rem 2rem;
+      padding: 6rem 2rem;
       border-top: 1px solid var(--border);
       position: relative;
       z-index: 1;
     }
 
     .cta h2 {
-      font-family: var(--font-pixel);
-      font-size: 0.875rem;
-      color: var(--accent-green);
-      margin-bottom: 1rem;
-      text-shadow: 0 0 20px rgba(0,210,106,0.3);
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.75rem;
     }
 
-    .cta p { color: var(--text-dim); margin-bottom: 1.5rem; }
+    .cta p { color: var(--text-secondary); margin-bottom: 1.5rem; }
 
     /* --- Footer --- */
     footer {
-      max-width: 1100px;
+      max-width: var(--max-w);
       margin: 0 auto;
-      padding: 1.5rem 2rem;
+      padding: 1.5rem 2.5rem;
       display: flex;
       justify-content: space-between;
       font-size: 0.75rem;
-      color: var(--text-dim);
+      color: var(--text-muted);
       position: relative;
       z-index: 1;
     }
 
-    footer a { color: var(--text-dim); text-decoration: none; }
-    footer a:hover { color: var(--accent-green); }
+    footer a:hover { color: var(--accent); }
+    @media (max-width: 640px) { footer { flex-direction: column; gap: 0.75rem; text-align: center; } }
 
-    /* --- Animations --- */
-    .fade-up {
+    /* --- Staggered reveals (transform + opacity only) --- */
+    .reveal {
       opacity: 0;
-      transform: translateY(20px);
-      animation: fadeUp 0.5s ease forwards;
+      transform: translateY(24px);
+      animation: slideUp 0.55s var(--ease) forwards;
     }
 
-    @keyframes fadeUp { to { opacity: 1; transform: none; } }
-    .d1 { animation-delay: 0.1s; } .d2 { animation-delay: 0.2s; }
-    .d3 { animation-delay: 0.3s; } .d4 { animation-delay: 0.4s; }
-    .d5 { animation-delay: 0.5s; } .d6 { animation-delay: 0.6s; }
+    @keyframes slideUp { to { opacity: 1; transform: none; } }
 
-    /* --- XP bar --- */
-    .xp-bar {
-      height: 6px;
-      background: var(--border);
-      border-radius: 3px;
-      overflow: hidden;
-      margin-top: 0.5rem;
-    }
-
-    .xp-fill {
-      height: 100%;
-      border-radius: 3px;
-      transition: width 1s ease;
-    }
+    .d1 { animation-delay: 0.08s; }
+    .d2 { animation-delay: 0.16s; }
+    .d3 { animation-delay: 0.24s; }
+    .d4 { animation-delay: 0.32s; }
+    .d5 { animation-delay: 0.40s; }
+    .d6 { animation-delay: 0.48s; }
+    .d7 { animation-delay: 0.56s; }
+    .d8 { animation-delay: 0.64s; }
   </style>
 </head>
 <body>
 
-  <!-- Hero -->
+  <!-- HERO: asymmetric 1.2fr / 0.8fr split -->
   <div class="hero">
     <div class="hero-left">
-      <h1 class="fade-up">Your agent has<br/>tools. It doesn't<br/>have a library.</h1>
-      <p class="fade-up d1">
-        An MCP skill that gives AI coding agents persistent research memory.
-        ArXiv, HN, RSS, your own codebase &mdash; indexed, embedded, and queryable mid-conversation.
-      </p>
-      <div class="social-badges fade-up d2">
+      <h1 class="reveal">Your agent has tools.<br/>It doesn't have<br/>a <span class="highlight">library</span>.</h1>
+      <p class="hero-sub reveal d1">An MCP skill that gives AI coding agents persistent research memory. ArXiv, Hacker News, RSS feeds, your own codebase &mdash; indexed, embedded, queryable mid-conversation.</p>
+      <div class="badges reveal d2">
         <a href="https://github.com/SaharBarak/wellinformed/stargazers"><img src="https://img.shields.io/github/stars/SaharBarak/wellinformed?style=social" alt="Stars" /></a>
         <a href="https://github.com/SaharBarak/wellinformed/network/members"><img src="https://img.shields.io/github/forks/SaharBarak/wellinformed?style=social" alt="Forks" /></a>
         <a href="https://github.com/SaharBarak/wellinformed/watchers"><img src="https://img.shields.io/github/watchers/SaharBarak/wellinformed?style=social" alt="Watchers" /></a>
       </div>
-      <div class="hero-btns fade-up d3">
-        <a href="https://github.com/SaharBarak/wellinformed" class="btn btn-green">View on GitHub</a>
-        <a href="https://github.com/SaharBarak/wellinformed#install" class="btn btn-outline">Install</a>
+      <div class="btn-row reveal d3">
+        <a href="https://github.com/SaharBarak/wellinformed" class="btn btn-primary">View on GitHub</a>
+        <a href="https://github.com/SaharBarak/wellinformed#install" class="btn btn-ghost">Quick start</a>
       </div>
     </div>
-    <div class="hero-right fade-up d2">
-      <div class="welly-sprite" style="margin:0 auto"></div>
-      <div class="stat-bar">
-        <h3>Agent Stats</h3>
-        <div class="stats-grid">
-          <div class="stat-item">
-            <div class="stat-value c-green">154</div>
-            <div class="stat-label">Nodes</div>
-            <div class="xp-bar"><div class="xp-fill" style="width:72%;background:var(--accent-green)"></div></div>
+
+    <div class="hero-right reveal d2">
+      <div class="sprite" style="margin:0 auto"></div>
+      <div class="glass hud">
+        <div class="hud-title">Agent stats</div>
+        <div class="hud-grid">
+          <div class="hud-stat">
+            <div class="hud-val" style="color:var(--accent)">154</div>
+            <div class="hud-label">Nodes</div>
+            <div class="bar"><div class="bar-fill" style="width:72%;background:var(--accent)"></div></div>
           </div>
-          <div class="stat-item">
-            <div class="stat-value c-blue">11</div>
-            <div class="stat-label">MCP Tools</div>
-            <div class="xp-bar"><div class="xp-fill" style="width:100%;background:var(--accent-blue)"></div></div>
+          <div class="hud-stat">
+            <div class="hud-val" style="color:var(--accent-cool)">11</div>
+            <div class="hud-label">MCP Tools</div>
+            <div class="bar"><div class="bar-fill" style="width:100%;background:var(--accent-cool)"></div></div>
           </div>
-          <div class="stat-item">
-            <div class="stat-value c-orange">8</div>
-            <div class="stat-label">Adapters</div>
-            <div class="xp-bar"><div class="xp-fill" style="width:88%;background:var(--accent-orange)"></div></div>
+          <div class="hud-stat">
+            <div class="hud-val" style="color:var(--accent-warm)">8</div>
+            <div class="hud-label">Adapters</div>
+            <div class="bar"><div class="bar-fill" style="width:88%;background:var(--accent-warm)"></div></div>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Quest Log (Features) -->
+  <!-- FEATURES: zig-zag, not 3-col equal cards -->
   <section>
-    <div class="section-title fade-up">Quest Log</div>
-    <h2 class="fade-up">What your agent unlocks</h2>
-    <p class="fade-up">Each capability is a tool the agent calls autonomously. Not commands for you.</p>
-    <div class="quests">
-      <div class="quest fade-up d1">
-        <div class="quest-tag c-green">MCP Native</div>
-        <h3>11 tools for your agent</h3>
-        <p>search, ask, get_node, find_tunnels, trigger_room. Claude calls them mid-conversation without copy-paste.</p>
+    <div class="label reveal" style="color:var(--accent)">Capabilities</div>
+    <h2 class="reveal d1">What your agent unlocks</h2>
+    <p class="desc reveal d2">Each is a tool the agent calls autonomously when it needs context. Not commands for you.</p>
+
+    <div class="zigzag">
+      <div class="glass item reveal d1">
+        <div class="item-tag" style="color:var(--accent)">MCP Native</div>
+        <h3>11 tools your agent calls</h3>
+        <p>search, ask, get_node, find_tunnels, trigger_room. Claude uses them without copy-paste.</p>
       </div>
-      <div class="quest fade-up d2">
-        <div class="quest-tag c-blue">Self-Indexing</div>
+      <div class="glass item reveal d2">
+        <div class="item-tag" style="color:var(--accent-cool)">Self-Indexing</div>
         <h3>Knows your codebase</h3>
-        <p>TypeScript files, package.json deps, git history, submodules. Your agent searches your code and research in one graph.</p>
+        <p>TypeScript files, deps, git history, submodules. Searches your code and research in one graph.</p>
       </div>
-      <div class="quest fade-up d3">
-        <div class="quest-tag c-orange">Active Fetching</div>
+      <div class="glass item reveal d3">
+        <div class="item-tag" style="color:var(--accent-warm)">Active Fetching</div>
         <h3>8 source adapters</h3>
-        <p>ArXiv API, Hacker News, RSS/Atom, any URL via Readability. Plus codebase, deps, submodules, git log.</p>
+        <p>ArXiv API, Hacker News, RSS/Atom, any URL. Plus codebase, deps, submodules, git log.</p>
       </div>
-      <div class="quest fade-up d4">
-        <div class="quest-tag c-purple">Rooms</div>
+      <div class="glass item reveal d4">
+        <div class="item-tag" style="color:var(--accent-rose)">Rooms</div>
         <h3>Partitioned domains</h3>
-        <p>homelab, fundraise, ml-papers. Each room has its own scope. Tunnels surface cross-domain connections.</p>
+        <p>homelab, fundraise, ml-papers. Tunnels surface when two rooms connect semantically.</p>
       </div>
-      <div class="quest fade-up d5">
-        <div class="quest-tag c-pink">Local</div>
+      <div class="glass item reveal d5">
+        <div class="item-tag" style="color:var(--accent)">Local-first</div>
         <h3>No cloud, no API keys</h3>
-        <p>ONNX embeddings, sqlite-vec search, NetworkX graph. Everything under ~/.wellinformed/. Sub-100ms latency.</p>
+        <p>ONNX embeddings, sqlite-vec search, NetworkX graph. Sub-100ms. All under ~/.wellinformed/.</p>
       </div>
-      <div class="quest fade-up d6">
-        <div class="quest-tag c-yellow">Daemon</div>
-        <h3>Auto-updating</h3>
-        <p>Background daemon triggers on a schedule. Discovery suggests new sources from your keywords. Reports generated daily.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Terminal demo -->
-  <section>
-    <div class="section-title">Live Demo</div>
-    <h2>What the agent sees</h2>
-    <p>A search for "sqlite vector" returns your code AND an external blog post about the same topic.</p>
-    <div class="terminal" style="max-width:700px">
-      <div class="terminal-bar">
-        <div class="terminal-dot td-red"></div>
-        <div class="terminal-dot td-yellow"></div>
-        <div class="terminal-dot td-green"></div>
-      </div>
-      <div class="terminal-body">
-        <div><span class="t-green">$</span> wellinformed ask <span class="t-blue">"vector search sqlite"</span></div>
-        <br/>
-        <div class="t-dim"># wellinformed results</div>
-        <br/>
-        <div class="t-dim">## <span class="t-green">sqlite-vec</span> <span class="t-purple">(npm dep)</span></div>
-        <div class="t-dim">distance: <span class="t-orange">0.908</span> | source: npm://sqlite-vec</div>
-        <br/>
-        <div class="t-dim">## <span class="t-green">vector-index.ts</span> <span class="t-purple">(your code)</span></div>
-        <div class="t-dim">distance: <span class="t-orange">1.021</span> | source: file://src/infrastructure/vector-index.ts</div>
-        <br/>
-        <div class="t-dim">## <span class="t-green">Syntaqlite Playground</span> <span class="t-purple">(Simon Willison)</span></div>
-        <div class="t-dim">distance: <span class="t-orange">1.023</span> | source: simonwillison.net</div>
+      <div class="glass item reveal d6">
+        <div class="item-tag" style="color:var(--accent-cool)">Background</div>
+        <h3>Auto-updating daemon</h3>
+        <p>Triggers on a schedule. Discovers new sources from keywords. Reports generated daily.</p>
       </div>
     </div>
   </section>
 
-  <!-- Platforms -->
+  <!-- TERMINAL: spotlight border effect -->
   <section>
-    <div class="section-title">Compatibility</div>
-    <h2>Works with your agent</h2>
-    <p></p>
-    <div class="quests" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr))">
-      <div class="quest">
-        <div class="quest-tag c-green">Auto-Discover</div>
-        <h3>Claude Code</h3>
-        <p>Detected via .claude-plugin/plugin.json. Zero config.</p>
-      </div>
-      <div class="quest">
-        <div class="quest-tag c-blue">MCP Server</div>
-        <h3>Codex</h3>
-        <p>Register as MCP tool provider via wellinformed mcp start.</p>
-      </div>
-      <div class="quest">
-        <div class="quest-tag c-purple">MCP Bridge</div>
-        <h3>OpenClaw</h3>
-        <p>Via pluginToolsMcpBridge or direct MCP registration.</p>
-      </div>
-      <div class="quest">
-        <div class="quest-tag c-orange">stdio</div>
-        <h3>Any MCP Host</h3>
-        <p>Standard JSON-RPC over stdio. Universal compatibility.</p>
+    <div class="label reveal" style="color:var(--accent-cool)">Live output</div>
+    <h2 class="reveal d1">What the agent sees</h2>
+    <p class="desc reveal d2">A search for "sqlite vector" returns your code AND an external blog post about the same topic.</p>
+
+    <div class="terminal-wrap reveal d3">
+      <div class="terminal">
+        <div class="terminal-bar">
+          <div class="dot dot-r"></div>
+          <div class="dot dot-y"></div>
+          <div class="dot dot-g"></div>
+        </div>
+        <div class="terminal-body">
+          <div><span class="tg">$</span> wellinformed ask <span class="tb">"vector search sqlite"</span></div>
+          <br/>
+          <div class="td"># wellinformed results for: vector search sqlite</div>
+          <br/>
+          <div class="td">## <span class="tg">sqlite-vec</span> <span class="tp">(npm dep)</span></div>
+          <div class="td">distance: <span class="to">0.908</span> | room: wellinformed-dev | source: npm://sqlite-vec</div>
+          <br/>
+          <div class="td">## <span class="tg">vector-index.ts</span> <span class="tp">(your code)</span></div>
+          <div class="td">distance: <span class="to">1.021</span> | room: wellinformed-dev | source: file://src/infrastructure/vector-index.ts</div>
+          <br/>
+          <div class="td">## <span class="tg">Syntaqlite Playground</span> <span class="tp">(Simon Willison)</span></div>
+          <div class="td">distance: <span class="to">1.023</span> | room: wellinformed-dev | source: simonwillison.net</div>
+          <br/>
+          <div style="color:var(--text-muted);font-style:italic;font-size:0.75rem">Cross-source match: your code + external blog, same query</div>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- Comparison -->
+  <!-- MCP TOOLS: 2-col asymmetric list -->
   <section>
-    <div class="section-title">vs Other Memory</div>
-    <h2>Not key-value storage</h2>
-    <p>A knowledge graph with active source fetching and codebase awareness.</p>
-    <div class="comparison">
-      <table>
-        <thead>
-          <tr>
-            <th></th>
-            <th>wellinformed</th>
-            <th>claude-mem</th>
-            <th>memsearch</th>
-            <th>mcp-memory</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td>Structure</td><td class="yes">Graph + vectors</td><td>Key-value</td><td>Markdown</td><td>Generic</td></tr>
-          <tr><td>Active fetching</td><td class="yes">ArXiv, HN, RSS</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
-          <tr><td>Codebase indexing</td><td class="yes">Files, deps, git</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
-          <tr><td>Room scoping</td><td class="yes">Partitions + tunnels</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
-          <tr><td>Local embeddings</td><td class="yes">ONNX, no API</td><td class="no">N/A</td><td class="no">N/A</td><td>Optional</td></tr>
-          <tr><td>Multi-platform</td><td class="yes">Claude, Codex, OpenClaw</td><td>Claude</td><td>Claude</td><td class="yes">Any MCP</td></tr>
-        </tbody>
-      </table>
+    <div class="label reveal" style="color:var(--accent-warm)">MCP protocol</div>
+    <h2 class="reveal d1">11 tools over stdio</h2>
+    <p class="desc reveal d2">Capabilities your agent gains when it discovers the plugin manifest.</p>
+
+    <div class="glass reveal d3" style="overflow:hidden">
+      <div class="tools-grid">
+        <div class="tool-row"><span class="tool-name">search</span><span class="tool-desc">Room-scoped semantic k-NN</span></div>
+        <div class="tool-row"><span class="tool-name">ask</span><span class="tool-desc">Search + assembled context block</span></div>
+        <div class="tool-row"><span class="tool-name">get_node</span><span class="tool-desc">Full attributes by ID</span></div>
+        <div class="tool-row"><span class="tool-name">get_neighbors</span><span class="tool-desc">Graph traversal from a node</span></div>
+        <div class="tool-row"><span class="tool-name">find_tunnels</span><span class="tool-desc">Cross-room similarity pairs</span></div>
+        <div class="tool-row"><span class="tool-name">trigger_room</span><span class="tool-desc">Fetch + embed + index</span></div>
+        <div class="tool-row"><span class="tool-name">graph_stats</span><span class="tool-desc">Node/edge/vector counts</span></div>
+        <div class="tool-row"><span class="tool-name">room_create</span><span class="tool-desc">Create a new room</span></div>
+        <div class="tool-row"><span class="tool-name">room_list</span><span class="tool-desc">Registry with metadata</span></div>
+        <div class="tool-row"><span class="tool-name">sources_list</span><span class="tool-desc">Configured source descriptors</span></div>
+      </div>
+    </div>
+
+    <!-- Platform pills -->
+    <div class="platforms reveal d4">
+      <div class="glass pill">Claude Code &mdash; auto-discovered</div>
+      <div class="glass pill">Codex &mdash; MCP server</div>
+      <div class="glass pill">OpenClaw &mdash; MCP bridge</div>
+      <div class="glass pill">Any MCP host &mdash; stdio</div>
     </div>
   </section>
 
   <!-- CTA -->
   <div class="cta">
-    <h2>Level up your agent</h2>
-    <p>Three commands. Persistent research memory. Your agent stops guessing.</p>
-    <a href="https://github.com/SaharBarak/wellinformed#install" class="btn btn-green">Get started</a>
+    <h2 class="reveal">Make your agent smarter</h2>
+    <p class="reveal d1">Three commands. Persistent research memory.</p>
+    <a href="https://github.com/SaharBarak/wellinformed#install" class="btn btn-primary reveal d2">Get started</a>
   </div>
 
   <footer>
-    <span>MIT &copy; 2026 SaharBarak</span>
+    <span>MIT 2026 SaharBarak</span>
     <a href="https://github.com/SaharBarak/wellinformed">GitHub</a>
   </footer>
 
