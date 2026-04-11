@@ -2,17 +2,17 @@
 
 ## Current Position
 
-Phase: 7 (Telegram Bridge)
-Plan: Not yet planned
-Status: Roadmap created, ready to plan Phase 7
-Last activity: 2026-04-12 — Roadmap created (4 phases, 29 requirements)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements for v1.1
+Last activity: 2026-04-12 — Milestone v1.1 started
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-04-12)
 
 **Core value:** Your coding agent answers from your actual research and codebase, not its training data.
-**Current focus:** Milestone v1.0 — Ship-Ready
+**Current focus:** Milestone v1.1 — Close Competitive Gaps
 
 ## Accumulated Context
 
@@ -21,4 +21,9 @@ See: .planning/PROJECT.md (updated 2026-04-12)
 - Functional DDD: no classes in domain/app, neverthrow Results everywhere
 - PreToolUse hook is the key differentiator — other memory tools don't auto-integrate
 - Discovery loop is recursive and converges — tested in production
-- 492 nodes across ArXiv, HN, RSS, GitHub Trending, codebase, deps, git
+- 494 nodes across ArXiv, HN, RSS, GitHub Trending, codebase, deps, git
+- Fixture embedder produces random vectors — IR quality metrics reflect this, NOT semantic capability
+- deep_search multi-hop already implemented (13th MCP tool)
+- Session capture Stop hook already implemented
+- Real latency: 0.18ms p50, 0.97ms p99 (proven faster than mcp-memory-service's 5ms)
+- Scale: 1000 nodes, search IMPROVES at scale (sqlite-vec caching)

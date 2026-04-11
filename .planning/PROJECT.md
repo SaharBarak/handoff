@@ -74,18 +74,15 @@ Your coding agent answers from your actual research and codebase, not its traini
 | sequenceLazy thunks | Eager ResultAsync map races on shared state | ✓ Good (caught in Phase 2 acceptance test) |
 | PreToolUse hook for graph awareness | Makes Claude use the graph automatically, no explicit ask | ✓ Good |
 
-## Current Milestone: v1.0 Ship-Ready
+## Current Milestone: v1.1 Close Competitive Gaps
 
-**Goal:** Make wellinformed production-ready: Telegram bridge, npm publishable, CI/CD, more adapters, graphify visualization, multi-room tunnels, Obsidian export.
+**Goal:** Close the 4 remaining gaps identified in competitive benchmarks against claude-mem, memsearch, mcp-memory-service, and Cognee.
 
 **Target features:**
-- Telegram bridge (inbound capture + outbound digests)
-- npm publish
-- CI/CD pipeline
-- Reddit, Dev.to, Product Hunt adapters
-- Graphify HTML visualization + Leiden clustering
-- Multi-room tunnel detection
-- Obsidian vault export
+- Session consolidation (Endless Mode equivalent — compress old sessions, extend effective context)
+- Multimodal ingestion (images via alt-text/EXIF/OCR, audio via transcript extraction)
+- Web dashboard (live graph visualization + search + stats in browser)
+- Real ONNX IR benchmarks (run all-MiniLM-L6-v2 on the labeled corpus, measure true P@K/R@K/MRR)
 
 ---
-*Last updated: 2026-04-12 after milestone v1.0 initialization*
+*Last updated: 2026-04-12 after milestone v1.1 initialization*
