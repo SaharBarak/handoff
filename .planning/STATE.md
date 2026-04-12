@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-12T08:16:27.419Z"
+last_updated: "2026-04-12T11:17:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 4
+  completed_plans: 3
 ---
 
 # State
@@ -16,7 +16,7 @@ progress:
 ## Current Position
 
 Phase: 15 (Peer Foundation + Security) — EXECUTING
-Plan: 3 of 4 (Plans 01 + 02 complete)
+Plan: 4 of 4 (Plans 01 + 02 + 03 complete)
 
 ### Plan 15-01 Complete (2026-04-12T07:58:38Z)
 
@@ -29,6 +29,13 @@ Plan: 3 of 4 (Plans 01 + 02 complete)
 - Commits: 49c6968, 841b212
 - Files: src/infrastructure/peer-transport.ts (new), src/infrastructure/peer-store.ts (new), package.json (4 new libp2p deps)
 - Summary: .planning/phases/phase-15/15-02-SUMMARY.md
+
+### Plan 15-03 Complete (2026-04-12T11:17:00Z)
+
+- Commits: ba7db60, 15394ef
+- Files: src/cli/commands/peer.ts (new), src/cli/commands/share.ts (new), src/cli/index.ts (modified)
+- Summary: .planning/phases/phase-15/15-03-SUMMARY.md
+- Delivers PEER-02/03/05 + SEC-04 fully; PEER-04 partial (live status deferred to Phase 18)
 
 ## Project Reference
 
@@ -65,3 +72,9 @@ See: .planning/PROJECT.md (updated 2026-04-12)
 - privateKeyFromRaw (libp2p 3.x) replaces plan's unmarshalEd25519PrivateKey (old API no longer exported)
 - PE.transportError used for hangUpPeer failures (PE.notFound reserved for registry lookup misses only)
 - [Phase 15]: All 37 Phase 15 tests went GREEN on first run — implementations from Plans 01+02 were already correct
+- [Plan 15-03]: `node.stop()` placed in try/finally of `peer add` — guarantees libp2p cleanup on every exit path
+- [Plan 15-03]: `peer list` reads peers.json only; live connection status, latency, shared rooms deferred to Phase 18 NET layer
+- [Plan 15-03]: `peer status` displays public key via `identity.privateKey.raw.slice(32)` — second 32 bytes of ed25519 raw form, no extra libp2p round-trip
+- [Plan 15-03]: `share audit` uses fileGraphRepository directly — avoids opening sqlite vector index for read-only audit
+- [Plan 15-03]: formatError accepts GraphError/PeerError/ScanError without casts — all are AppError union members
+- [Plan 15-03]: `share audit --json` emits full ShareableNode records + ScanMatch arrays (not just counts)

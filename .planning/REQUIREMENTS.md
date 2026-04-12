@@ -10,7 +10,7 @@
 - [x] **PEER-01**: Each wellinformed instance has an ed25519 keypair generated on first run, stored at ~/.wellinformed/peer-identity.json
 - [x] **PEER-02**: `wellinformed peer add <multiaddr>` connects to a remote peer via js-libp2p
 - [x] **PEER-03**: `wellinformed peer remove <id>` disconnects and removes a peer
-- [x] **PEER-04**: `wellinformed peer list` shows connected peers with status, latency, shared rooms
+- [x] **PEER-04**: `wellinformed peer list` shows connected peers with status, latency, shared rooms *(Phase 15: stored peers only; live status / latency / shared rooms land with Phase 18 NET layer)*
 - [x] **PEER-05**: `wellinformed peer status` shows own identity, public key, connected peer count
 
 ### Security & Privacy

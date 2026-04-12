@@ -14,8 +14,8 @@
 
 Plans:
 - [x] 15-01-PLAN.md — Domain types + security scanner (peer.ts, sharing.ts, errors, config) — DONE 2026-04-12
-- [ ] 15-02-PLAN.md — Infrastructure layer (libp2p install, peer-transport.ts, peer-store.ts)
-- [ ] 15-03-PLAN.md — CLI commands (peer add/remove/list/status, share audit, index.ts wiring)
+- [x] 15-02-PLAN.md — Infrastructure layer (libp2p install, peer-transport.ts, peer-store.ts) — DONE 2026-04-12
+- [x] 15-03-PLAN.md — CLI commands (peer add/remove/list/status, share audit, index.ts wiring) — DONE 2026-04-12
 - [ ] 15-04-PLAN.md — TDD test suite (all 11 requirements covered)
 
 **Success criteria:**
