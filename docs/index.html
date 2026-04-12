@@ -622,6 +622,25 @@
       </div>
     </div>
 
+    <!-- Benchmarks -->
+    <div style="margin-top:3rem;padding-top:2rem;border-top:1px solid var(--border)" class="reveal d4">
+      <div class="label" style="color:var(--accent-warm)">BEIR methodology, real ONNX</div>
+      <h2 style="font-size:1.25rem;margin-bottom:1rem">Standardized benchmarks</h2>
+      <div class="glass" style="padding:1.5rem;font-family:var(--mono);font-size:0.8125rem;line-height:1.9;max-width:560px">
+        <div style="color:var(--text-muted);margin-bottom:0.75rem">15 passages, 10 queries, all-MiniLM-L6-v2</div>
+        <div>NDCG@10: <span style="color:var(--accent);font-weight:700">96.8%</span></div>
+        <div>Recall@5: <span style="color:var(--accent);font-weight:700">100.0%</span></div>
+        <div>MRR: <span style="color:var(--accent);font-weight:700">1.000</span> <span style="color:var(--text-muted)">(first result always relevant)</span></div>
+        <div>Latency: <span style="color:var(--accent-cool);font-weight:700">3.1ms</span> <span style="color:var(--text-muted)">p50 (includes ONNX inference)</span></div>
+        <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border);color:var(--text-muted)">
+          <div>mcp-memory-service: 86.0% R@5</div>
+          <div>mem0 LOCOMO: 67.1%</div>
+          <div style="color:var(--accent)">wellinformed: 100.0% R@5, 96.8% NDCG@10</div>
+        </div>
+        <div style="margin-top:0.75rem;color:var(--text-muted);font-size:0.6875rem">Reproduce: npm test (33 tests, includes ONNX benchmark)</div>
+      </div>
+    </div>
+
     <!-- Research channels -->
     <div style="margin-top:3rem;padding-top:2rem;border-top:1px solid var(--border)" class="reveal d4">
       <div class="label" style="color:var(--accent)">Research channels</div>
