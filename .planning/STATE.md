@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-12T15:35:57.116Z"
+last_updated: "2026-04-12T15:42:16.803Z"
 progress:
   total_phases: 5
   completed_phases: 0
@@ -147,3 +147,6 @@ See: .planning/PROJECT.md (updated 2026-04-12)
 - [Phase phase-18]: NetError formatError cases appended after CodebaseInvalidPathError without default clause for TypeScript exhaustiveness
 - [Phase phase-18]: autoConfirmAddress:true on uPnPNAT bypasses @libp2p/autonat dependency without additional install
 - [Phase phase-18]: @libp2p/identify@4.1.0 added — circuitRelayTransport RelayDiscovery unconditionally requires it
+- [Phase phase-18]: health: 'unknown' in CLI; live health deferred to Phase 19+ daemon IPC/MCP
+- [Phase phase-18]: Bandwidth gate runs before secrets scan; burst=rate for share limiter
+- [Phase phase-18]: Relay pre-dial best-effort: failures logged but daemon never crashes
