@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-12T11:04:47Z"
+last_updated: "2026-04-12T11:12:16.396Z"
 progress:
   total_phases: 4
   completed_phases: 0
@@ -15,8 +15,16 @@ progress:
 
 ## Current Position
 
-Phase: 16 (Room Sharing via Y.js CRDT) — EXECUTING
-Plan: 3 of 4
+Phase: 16 (Room Sharing via Y.js CRDT) — COMPLETE
+Plan: 4 of 4 — ALL PLANS COMPLETE
+
+### Plan 16-04 Complete (2026-04-12T11:30:00Z)
+
+- Commits: fa9ef10
+- Files: tests/phase16.share-crdt.test.ts (new — 969 lines, 40 tests, 13 describe groups)
+- Summary: .planning/phases/phase-16/16-04-SUMMARY.md
+- Result: npm test 127/127 pass (87 prior + 40 new), 0 regressions
+- Covers SHARE-01..06 + 5 pitfall regressions (echo loop, V1/V2, empty-response guard, init order, Uint8ArrayList pipeline)
 
 ### Plan 16-03 Complete (2026-04-12T11:04:47Z)
 
@@ -96,3 +104,6 @@ See: .planning/PROJECT.md (updated 2026-04-12)
 - [Plan 16-01]: Per-path writeQueues Map serializes concurrent saveYDoc calls; snapshot taken synchronously at call time
 - [Plan 16-01]: loadYDoc never calls doc.getMap — strict init order (new Doc → applyUpdate → return to caller)
 - [Phase phase-16]: Used it-length-prefixed lp.encode/lp.decode directly on libp2p Stream's AsyncIterable instead of missing it-length-prefixed-stream transitive dep
+- [Plan 16-04]: Block-comment stripping applied before doesNotMatch structural assertions — JSDoc mentions of forbidden APIs do not cause false failures
+- [Plan 16-04]: Uint8ArrayList.subarray structural test uses pipeline pattern (frameIter .subarray() + handleInboundFrame param type) — flatten-in-iterator design, not co-located with createDecoder
+- [Plan 16-04]: Phase 16 complete — 127/127 tests pass, all SHARE-01..06 requirements locked by regression tests
