@@ -35,18 +35,18 @@
 
 ### Federated Search
 
-- [ ] **FED-01**: `wellinformed ask "query" --peers` searches across all connected peers' shared rooms
-- [ ] **FED-02**: Results aggregated and re-ranked by distance across all peers
-- [ ] **FED-03**: Each result shows which peer it came from
-- [ ] **FED-04**: Tunnel detection runs across peers — cross-peer + cross-room connections surfaced
-- [ ] **FED-05**: MCP tool `federated_search` lets Claude search the P2P network mid-conversation
+- [x] **FED-01**: `wellinformed ask "query" --peers` searches across all connected peers' shared rooms
+- [x] **FED-02**: Results aggregated and re-ranked by distance across all peers
+- [x] **FED-03**: Each result shows which peer it came from
+- [x] **FED-04**: Tunnel detection runs across peers — cross-peer + cross-room connections surfaced
+- [x] **FED-05**: MCP tool `federated_search` lets Claude search the P2P network mid-conversation
 
 ### Peer Discovery
 
-- [ ] **DISC-01**: Manual peer add via multiaddr (always works, no infrastructure needed)
-- [ ] **DISC-02**: mDNS/Bonjour auto-discovery for peers on the same local network
-- [ ] **DISC-03**: DHT-based discovery for internet-wide peer finding (libp2p Kademlia)
-- [ ] **DISC-04**: Optional coordination server for bootstrapping (lightweight, stateless)
+- [x] **DISC-01**: Manual peer add via multiaddr (always works, no infrastructure needed)
+- [x] **DISC-02**: mDNS/Bonjour auto-discovery for peers on the same local network
+- [x] **DISC-03**: DHT-based discovery for internet-wide peer finding (libp2p Kademlia)
+- [x] **DISC-04**: Optional coordination server for bootstrapping (lightweight, stateless)
 
 ### Production Networking
 
