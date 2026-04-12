@@ -14,7 +14,7 @@ Peer identity, manual peer management, secrets scanning, and share audit. Establ
 ## Implementation Decisions
 
 ### Peer Identity & Key Management
-- libp2p protobuf-encoded ed25519 keypair stored at ~/.wellinformed/peer-identity.json
+- ed25519 keypair stored at ~/.wellinformed/peer-identity.json as raw base64 JSON (research confirms `.raw` property gives the correct 64 bytes directly — protobuf framing is unnecessary at the storage layer; libp2p's `unmarshalEd25519PrivateKey()` accepts the raw Uint8Array)
 - PeerId derived via libp2p standard (multihash of public key) for interoperability
 - Keypair auto-generated on first `peer` command (lazy, no explicit init step)
 - New `src/domain/peer.ts` for PeerId/PeerInfo/PeerRegistry types + pure validation; `src/infrastructure/peer-transport.ts` for libp2p I/O
@@ -71,7 +71,7 @@ Peer identity, manual peer management, secrets scanning, and share audit. Establ
 ## Specific Ideas
 
 - js-libp2p confirmed in PROJECT.md (2.5K stars, pushed Apr 11) — verified via gh API
-- 3 new deps budget: @libp2p/tcp, @libp2p/noise, @libp2p/yamux (libp2p is modular, each is separate)
+- 4 new deps: libp2p (core) + @libp2p/tcp, @libp2p/noise, @libp2p/yamux (3 plugin modules)
 - Peer authentication (SEC-06) handled natively by libp2p Noise handshake — no extra code needed
 
 </specifics>
