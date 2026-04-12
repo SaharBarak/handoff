@@ -66,13 +66,21 @@ Plans:
 
 ## Phase 18: Production Networking
 
-**Goal:** Production-grade P2P networking: multiplexed streams, NAT traversal, bandwidth management, auto-reconnect.
+**Goal:** Production-grade P2P networking: multiplexed streams (yamux), NAT traversal (circuit-relay-v2 + dcutr + uPnPNAT), application-layer bandwidth management, and passive connection health monitoring. Last phase of v2.0 — after verify, the milestone ships.
 
 **Requirements:** NET-01..04
 
+**Plans:** 4 plans
+
+Plans:
+- [ ] 18-01-PLAN.md — Foundation: install 3 libp2p deps (exact pins), NetError 6-variant, PeerConfig.relays/upnp/bandwidth + defaults
+- [ ] 18-02-PLAN.md — Infrastructure: bandwidth-limiter.ts (Semaphore + re-exported createRateLimiter), connection-health.ts (HealthTracker), peer-transport wiring (circuitRelayTransport + dcutr + uPnPNAT)
+- [ ] 18-03-PLAN.md — Integration: share-sync bandwidth gate, daemon connection:close listener + relay pre-dial, peer list health column
+- [ ] 18-04-PLAN.md — TDD suite: structural + unit + 10-peer mesh integration (listenPort:0, mdns:false, Promise.allSettled cleanup), all 7 pitfalls locked
+
 **Success criteria:**
 1. Peers behind NAT connect via libp2p relay + hole punching
-2. Sync rate is configurable and doesn't flood bandwidth
+2. Sync rate is configurable and does not flood bandwidth
 3. Connection drops are detected and auto-reconnected
 4. 10+ peers connected simultaneously without degradation
 
