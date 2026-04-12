@@ -26,6 +26,7 @@ Your coding agent answers from your actual research and codebase, not its traini
 - ✓ `claude install` (PreToolUse hook for automatic graph awareness) — Extra
 - ✓ `publish` command (X/Twitter OAuth + thread posting) — Extra
 - ✓ Status bar, logo, landing page, README — Extra
+- ✓ Peer identity + secrets scanning + share audit (libp2p + 10 regex patterns + SEC-03 field boundary) — Phase 15
 
 ### Active
 
