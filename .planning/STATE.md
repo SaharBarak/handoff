@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-12T10:38:49.427Z"
+last_updated: "2026-04-12T11:04:47Z"
 progress:
   total_phases: 4
   completed_phases: 0
@@ -16,7 +16,14 @@ progress:
 ## Current Position
 
 Phase: 16 (Room Sharing via Y.js CRDT) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
+
+### Plan 16-03 Complete (2026-04-12T11:04:47Z)
+
+- Commits: 8e2807f, 95dba6f, 9b1e12e
+- Files: src/cli/commands/share.ts (extended — room subcommand), src/cli/commands/unshare.ts (new), src/cli/index.ts (unshare registered), src/daemon/loop.ts (shareSync hook + libp2p bootstrap)
+- Summary: .planning/phases/phase-16/16-03-SUMMARY.md
+- Delivers SHARE-01 (audit gate), SHARE-02 (unshare), SHARE-03/05/06 (daemon tick), SHARE-04 (Y.Doc seeding)
 
 ### Plan 16-01 Complete (2026-04-12T10:24:51Z)
 
