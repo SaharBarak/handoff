@@ -30,6 +30,14 @@ Plans:
 
 **Requirements:** SHARE-01..06
 
+**Plans:** 4 plans (4 waves)
+
+Plans:
+- [ ] 16-01-PLAN.md — Foundation: yjs+y-protocols install, ShareError, share-store, ydoc-store (V1 encoding, atomic writes)
+- [ ] 16-02-PLAN.md — Sync engine: /wellinformed/share/1.0.0 libp2p protocol, REMOTE_ORIGIN echo prevention, secrets-scanned in/out updates, debounced graph flush
+- [ ] 16-03-PLAN.md — CLI surface: `share room` (audit-gated), `unshare` (keeps .ydoc), daemon hook for runShareSyncTick
+- [ ] 16-04-PLAN.md — TDD test suite: SHARE-01..06 + 4 pitfall regression tests (echo loop, V1/V2, empty-response guard, init order)
+
 **Success criteria:**
 1. `share room homelab` makes a room available to connected peers
 2. Peer B sees nodes from Peer A's shared room within 5 seconds
