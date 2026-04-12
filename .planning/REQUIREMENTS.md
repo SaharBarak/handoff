@@ -17,7 +17,9 @@
 
 - [x] **SEC-01**: Secrets scanner runs on every node before sharing — detects API keys (sk-, ghp_, AKIA), tokens, passwords, .env patterns
 - [x] **SEC-02**: Flagged nodes are BLOCKED from sharing with a clear warning
-- [x] **SEC-03**: Shared nodes carry only: id, label, room, embedding vector, source_uri, fetched_at. No raw text, no content_sha256, no file contents
+- [x] **SEC-03**: Shared nodes carry only: id, label, room, embedding_id, source_uri, fetched_at. No raw text, no content_sha256, no file contents, and no raw embedding vectors.
+
+    **Rationale for `embedding_id` (reference) instead of `embedding_vector` (raw float array) — revised 2026-04-12:** Embedding-inversion attacks can recover approximate source text from sentence-transformer vectors (Morris et al. 2023, "Text Embeddings Reveal Almost As Much As Text"). Sharing raw vectors would make the metadata boundary porous — a peer receiving vectors could reconstruct private content the user never meant to leak. Phase 15 ships `embedding_id` as a stable reference so receivers know which embedding slot a node occupies locally, but the vector itself is never transmitted. Cross-peer semantic search (Phase 17) must re-embed from `source_uri + label` on the receiving side rather than trusting imported vectors. This is a stronger security model than the original spec and should be preserved through Phase 16+.
 - [x] **SEC-04**: `wellinformed share audit --room X` shows exactly what would be shared before enabling
 - [x] **SEC-05**: All P2P traffic encrypted via libp2p Noise protocol
 - [x] **SEC-06**: Peer authentication via ed25519 signature verification
