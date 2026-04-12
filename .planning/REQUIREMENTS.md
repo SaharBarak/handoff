@@ -1,89 +1,89 @@
-# Requirements: wellinformed v1.1
+# Requirements: wellinformed v2.0
 
 **Defined:** 2026-04-12
-**Core Value:** Your coding agent answers from your actual research and codebase, not its training data.
+**Core Value:** A decentralized knowledge graph where every coding agent shares what it learned.
 
-## v1.1 Requirements
+## v2.0 Requirements
 
-### Session Management
+### Peer Identity & Management
 
-- [ ] **SESS-01**: Session captures are automatically consolidated after exceeding a configurable threshold (default 50 entries)
-- [ ] **SESS-02**: Consolidated sessions produce a summary node that preserves the key decisions and topics discussed
-- [ ] **SESS-03**: Old individual session nodes are replaced by the summary (graph doesn't grow unboundedly)
-- [ ] **SESS-04**: Session memory has decay scoring — recent sessions rank higher in search results
-- [ ] **SESS-05**: Retrieval priority scoring weights recency, frequency of topic, and semantic relevance
+- [ ] **PEER-01**: Each wellinformed instance has an ed25519 keypair generated on first run, stored at ~/.wellinformed/peer-identity.json
+- [ ] **PEER-02**: `wellinformed peer add <multiaddr>` connects to a remote peer via js-libp2p
+- [ ] **PEER-03**: `wellinformed peer remove <id>` disconnects and removes a peer
+- [ ] **PEER-04**: `wellinformed peer list` shows connected peers with status, latency, shared rooms
+- [ ] **PEER-05**: `wellinformed peer status` shows own identity, public key, connected peer count
 
-### Multimodal Ingestion
+### Security & Privacy
 
-- [ ] **MULTI-01**: Image adapter extracts alt-text, EXIF metadata, and filename analysis from image files
-- [ ] **MULTI-02**: Image OCR adapter runs tesseract on screenshots/diagrams to extract text content
-- [ ] **MULTI-03**: Audio transcription adapter extracts text from audio files via whisper or equivalent
-- [ ] **MULTI-04**: PDF adapter extracts full text from PDF documents (ArXiv full papers, whitepapers)
-- [ ] **MULTI-05**: All multimodal adapters produce standard ContentItem values that flow through the existing chunk + embed pipeline
+- [ ] **SEC-01**: Secrets scanner runs on every node before sharing — detects API keys (sk-, ghp_, AKIA), tokens, passwords, .env patterns
+- [ ] **SEC-02**: Flagged nodes are BLOCKED from sharing with a clear warning
+- [ ] **SEC-03**: Shared nodes carry only: id, label, room, embedding vector, source_uri, fetched_at. No raw text, no content_sha256, no file contents
+- [ ] **SEC-04**: `wellinformed share audit --room X` shows exactly what would be shared before enabling
+- [ ] **SEC-05**: All P2P traffic encrypted via libp2p Noise protocol
+- [ ] **SEC-06**: Peer authentication via ed25519 signature verification
 
-### Web Dashboard
+### Room Sharing
 
-- [ ] **DASH-01**: `wellinformed dashboard` starts an HTTP server on localhost serving a browser-based graph visualization
-- [ ] **DASH-02**: Dashboard renders the knowledge graph with vis.js, room-colored nodes, clickable to source_uri
-- [ ] **DASH-03**: Dashboard includes a search box that calls the search MCP tool and highlights matching nodes
-- [ ] **DASH-04**: Dashboard shows room filter sidebar with node counts per room
-- [ ] **DASH-05**: Dashboard shows node inspector panel (click a node → see all attributes, neighbors, edges)
-- [ ] **DASH-06**: Dashboard auto-refreshes graph state on a configurable interval
+- [ ] **SHARE-01**: `wellinformed share room <name>` marks a room as public (shared with connected peers)
+- [ ] **SHARE-02**: `wellinformed unshare room <name>` makes a room private again
+- [ ] **SHARE-03**: Shared rooms sync via Y.js CRDT — concurrent edits from multiple peers converge
+- [ ] **SHARE-04**: Only metadata + embeddings replicate (node labels, vectors, edges) — not raw source text
+- [ ] **SHARE-05**: Sync is incremental — only new/changed nodes since last sync
+- [ ] **SHARE-06**: Offline changes queue and sync automatically when peers reconnect
 
-### Real ONNX Benchmarks
+### Federated Search
 
-- [ ] **BENCH-01**: Benchmark test uses real Xenova all-MiniLM-L6-v2 model (not fixture embedder) on the labeled corpus
-- [ ] **BENCH-02**: Reports real P@5, R@5, MRR, NDCG@5 with actual semantic embeddings
-- [ ] **BENCH-03**: Latency percentiles measured with real ONNX inference included (not just sqlite-vec lookup)
-- [ ] **BENCH-04**: Results documented in docs/BENCHMARKS.md with methodology, corpus description, and reproducibility instructions
+- [ ] **FED-01**: `wellinformed ask "query" --peers` searches across all connected peers' shared rooms
+- [ ] **FED-02**: Results aggregated and re-ranked by distance across all peers
+- [ ] **FED-03**: Each result shows which peer it came from
+- [ ] **FED-04**: Tunnel detection runs across peers — cross-peer + cross-room connections surfaced
+- [ ] **FED-05**: MCP tool `federated_search` lets Claude search the P2P network mid-conversation
 
-## v2 Requirements
+### Peer Discovery
 
-### Advanced Intelligence
+- [ ] **DISC-01**: Manual peer add via multiaddr (always works, no infrastructure needed)
+- [ ] **DISC-02**: mDNS/Bonjour auto-discovery for peers on the same local network
+- [ ] **DISC-03**: DHT-based discovery for internet-wide peer finding (libp2p Kademlia)
+- [ ] **DISC-04**: Optional coordination server for bootstrapping (lightweight, stateless)
 
-- **INTEL-01**: Trend detection across time — surface topics growing in frequency
-- **INTEL-02**: Citation graph — track which papers/posts reference each other
-- **INTEL-03**: Auto-tagging — classify nodes by topic using embedding clusters
+### Production Networking
+
+- [ ] **NET-01**: js-libp2p transport with multiplexed streams
+- [ ] **NET-02**: Bandwidth management — configurable sync rate, no flooding
+- [ ] **NET-03**: NAT traversal via libp2p relay + hole punching
+- [ ] **NET-04**: Connection health monitoring with auto-reconnect
+
+## v3 Requirements (deferred)
+
+- **V3-01**: Reputation system — peers that share valuable content rank higher
+- **V3-02**: Incentive layer — token-based rewards for sharing rare knowledge
+- **V3-03**: Federated learning — train shared embedding models across the network
+- **V3-04**: Global knowledge index — searchable directory of all public rooms across all peers
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Video ingestion | Requires video processing infrastructure — defer to v2 |
-| Real-time streaming ingest | Batch model sufficient for research use case |
-| Multi-user collaboration | Single-user tool, per-machine state |
-| Cloud sync | Local-first — Cloudflare backend is a v2 consideration |
+| Blockchain/crypto integration | Complexity, no clear value for v2 |
+| Raw text sharing | Privacy risk — metadata + embeddings only |
+| Anonymous peers | All peers authenticated via ed25519 |
+| Central server dependency | P2P by design — server is optional bootstrap only |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SESS-01 | Phase 11 | Pending |
-| SESS-02 | Phase 11 | Pending |
-| SESS-03 | Phase 11 | Pending |
-| SESS-04 | Phase 11 | Pending |
-| SESS-05 | Phase 11 | Pending |
-| MULTI-01 | Phase 12 | Pending |
-| MULTI-02 | Phase 12 | Pending |
-| MULTI-03 | Phase 12 | Pending |
-| MULTI-04 | Phase 12 | Pending |
-| MULTI-05 | Phase 12 | Pending |
-| DASH-01 | Phase 13 | Pending |
-| DASH-02 | Phase 13 | Pending |
-| DASH-03 | Phase 13 | Pending |
-| DASH-04 | Phase 13 | Pending |
-| DASH-05 | Phase 13 | Pending |
-| DASH-06 | Phase 13 | Pending |
-| BENCH-01 | Phase 14 | Pending |
-| BENCH-02 | Phase 14 | Pending |
-| BENCH-03 | Phase 14 | Pending |
-| BENCH-04 | Phase 14 | Pending |
+| PEER-01..05 | Phase 15 | Pending |
+| SEC-01..06 | Phase 15 | Pending |
+| SHARE-01..06 | Phase 16 | Pending |
+| FED-01..05 | Phase 17 | Pending |
+| DISC-01..04 | Phase 17 | Pending |
+| NET-01..04 | Phase 18 | Pending |
 
 **Coverage:**
-- v1.1 requirements: 20 total
-- Mapped to phases: 20
+- v2.0 requirements: 30 total
+- Mapped to phases: 30
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-12*
-*Last updated: 2026-04-12 after initial definition*

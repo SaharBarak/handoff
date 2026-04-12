@@ -2,10 +2,10 @@
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements for v2.0
-Last activity: 2026-04-12 — Milestone v2.0 started
+Phase: 15 (Peer Foundation + Security)
+Plan: Not yet planned
+Status: Roadmap created, ready to plan Phase 15
+Last activity: 2026-04-12 — v2.0 roadmap created (4 phases, 30 requirements)
 
 ## Project Reference
 
