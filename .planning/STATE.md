@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-12T15:42:16.803Z"
+last_updated: "2026-04-12T15:54:55.880Z"
 progress:
   total_phases: 5
   completed_phases: 0
@@ -150,3 +150,5 @@ See: .planning/PROJECT.md (updated 2026-04-12)
 - [Phase phase-18]: health: 'unknown' in CLI; live health deferred to Phase 19+ daemon IPC/MCP
 - [Phase phase-18]: Bandwidth gate runs before secrets scan; burst=rate for share limiter
 - [Phase phase-18]: Relay pre-dial best-effort: failures logged but daemon never crashes
+- [Phase phase-18]: bandwidth gate returns errAsync(BandwidthExceeded) — write rejected, not silently accepted
+- [Phase phase-18]: 10-peer integration test completes in ~2.5s with ring+cross-link mesh (listenPort:0, mdns:false, Promise.allSettled)
