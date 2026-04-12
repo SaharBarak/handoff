@@ -24,19 +24,19 @@ Plans:
 3. Secrets scanner detects API keys in test fixtures and blocks them
 4. `share audit --room X` shows the metadata that would be shared
 
-## Phase 16: Room Sharing via Y.js CRDT
+## Phase 16: Room Sharing via Y.js CRDT ✓ COMPLETE 2026-04-12
 
 **Goal:** Mark rooms as public, sync nodes across peers via Y.js. Metadata-only replication with incremental sync.
 
-**Requirements:** SHARE-01..06
+**Requirements:** SHARE-01..06 (live-network UAT deferred to Phase 17/18)
 
-**Plans:** 4 plans (4 waves)
+**Plans:** 4/4 complete
 
 Plans:
-- [ ] 16-01-PLAN.md — Foundation: yjs+y-protocols install, ShareError, share-store, ydoc-store (V1 encoding, atomic writes)
-- [ ] 16-02-PLAN.md — Sync engine: /wellinformed/share/1.0.0 libp2p protocol, REMOTE_ORIGIN echo prevention, secrets-scanned in/out updates, debounced graph flush
-- [ ] 16-03-PLAN.md — CLI surface: `share room` (audit-gated), `unshare` (keeps .ydoc), daemon hook for runShareSyncTick
-- [ ] 16-04-PLAN.md — TDD test suite: SHARE-01..06 + 4 pitfall regression tests (echo loop, V1/V2, empty-response guard, init order)
+- [x] 16-01-PLAN.md — Foundation: yjs+y-protocols install, ShareError, share-store, ydoc-store (V1 encoding, atomic writes) — DONE 2026-04-12
+- [x] 16-02-PLAN.md — Sync engine: /wellinformed/share/1.0.0 libp2p protocol, REMOTE_ORIGIN echo prevention, secrets-scanned in/out updates, debounced graph flush — DONE 2026-04-12
+- [x] 16-03-PLAN.md — CLI surface: `share room` (audit-gated), `unshare` (keeps .ydoc), daemon hook for runShareSyncTick — DONE 2026-04-12
+- [x] 16-04-PLAN.md — TDD test suite: SHARE-01..06 + 5 pitfall regressions + local broadcast invariant (40 tests, 13 groups) — DONE 2026-04-12
 
 **Success criteria:**
 1. `share room homelab` makes a room available to connected peers
