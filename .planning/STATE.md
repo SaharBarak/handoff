@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-12T12:42:08.652Z"
+last_updated: "2026-04-12T13:01:24.259Z"
 progress:
   total_phases: 4
   completed_phases: 0
@@ -129,3 +129,4 @@ See: .planning/PROJECT.md (updated 2026-04-12)
 - [Plan 17-02]: Fan-out uses Promise.all + Promise.race(2s) per peer — NOT ResultAsync.combine (short-circuits on first error)
 - [Plan 17-02]: DHT runs clientMode:true without @libp2p/identify — package not available transitively; clientMode routing is passive
 - [Plan 17-02]: Peer-only rows skipped in tunnel pass — raw vectors not transmitted on wire (SEC-03 boundary); documented functional subset
+- [Phase phase-17]: Short-lived libp2p node per ask --peers / federated_search invocation
