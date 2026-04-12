@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-12T15:24:47.813Z"
+last_updated: "2026-04-12T15:35:57.116Z"
 progress:
   total_phases: 5
   completed_phases: 0
@@ -145,3 +145,5 @@ See: .planning/PROJECT.md (updated 2026-04-12)
 - [Phase phase-19]: tree-sitter version pins corrected to 0.21.1/0.23.2/0.23.4 in test assertions (plan spec was stale 0.25.0)
 - [Phase phase-18]: ESM-only libp2p v3 packages require import() not require(); verified via dynamic import
 - [Phase phase-18]: NetError formatError cases appended after CodebaseInvalidPathError without default clause for TypeScript exhaustiveness
+- [Phase phase-18]: autoConfirmAddress:true on uPnPNAT bypasses @libp2p/autonat dependency without additional install
+- [Phase phase-18]: @libp2p/identify@4.1.0 added — circuitRelayTransport RelayDiscovery unconditionally requires it
