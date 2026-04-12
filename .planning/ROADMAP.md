@@ -76,6 +76,18 @@ Plans:
 3. Connection drops are detected and auto-reconnected
 4. 10+ peers connected simultaneously without degradation
 
+## Phase 19: Structured Codebase Indexing
+
+**Goal:** Parse codebases into a rich, structured code graph (classes, functions, signatures, call graph) stored separately from the research room graph. Codebases are first-class aggregates attachable to rooms via a join table. Powered by tree-sitter with TypeScript + Python grammars.
+
+**Requirements:** CODE-01..08
+
+**Success criteria:**
+1. `wellinformed codebase index <path>` parses a TypeScript/JavaScript codebase into `~/.wellinformed/code-graph.db` with classes, functions, methods, imports, exports
+2. `wellinformed codebase attach <codebase-id> --room <room-id>` attaches a codebase to a research room (M:N)
+3. `wellinformed codebase search <query>` returns code nodes by semantic match across attached codebases
+4. New MCP tool `code_graph_query` lets Claude query the structured code graph independently of research rooms
+
 ## Phase Summary
 
 | Phase | Name | Requirements | Success Criteria |
@@ -84,7 +96,8 @@ Plans:
 | 16 | Room Sharing (Y.js CRDT) | SHARE-01..06 (6) | 4 |
 | 17 | Federated Search + Discovery | FED-01..05, DISC-01..04 (9) | 4 |
 | 18 | Production Networking | NET-01..04 (4) | 4 |
-| **Total** | | **30** | **16** |
+| 19 | Structured Codebase Indexing | CODE-01..08 (8) | 4 |
+| **Total** | | **38** | **20** |
 
 ---
-*Roadmap created: 2026-04-12*
+*Roadmap created: 2026-04-12 (Phase 19 added 2026-04-12 after Phase 18 kickoff)*

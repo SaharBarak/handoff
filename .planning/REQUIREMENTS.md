@@ -55,6 +55,17 @@
 - [ ] **NET-03**: NAT traversal via libp2p relay + hole punching
 - [ ] **NET-04**: Connection health monitoring with auto-reconnect
 
+### Structured Codebase Indexing
+
+- [ ] **CODE-01**: `wellinformed codebase index <path>` parses a codebase into `~/.wellinformed/code-graph.db` using tree-sitter (TypeScript + Python grammars at minimum)
+- [ ] **CODE-02**: Code graph schema captures: file, module, class, interface, function, method, signature (parameters + return type), imports, exports, call graph edges — stored in a separate SQLite database distinct from the research graph
+- [ ] **CODE-03**: Codebase is a first-class DDD aggregate root with its own `CodebaseId`, separate from `RoomId`
+- [ ] **CODE-04**: `wellinformed codebase attach <codebase-id> --room <room-id>` attaches a codebase to a room via the `codebase_rooms` join table (M:N — one codebase can be attached to multiple rooms, one room can reference multiple codebases)
+- [ ] **CODE-05**: `wellinformed codebase list` shows all indexed codebases with their language, node count, and attached rooms
+- [ ] **CODE-06**: `wellinformed codebase reindex <codebase-id>` incrementally re-indexes changed files (by mtime or git SHA) without re-parsing unchanged files
+- [ ] **CODE-07**: `wellinformed codebase search <query>` returns code nodes matching the query across attached codebases, with line/column locations
+- [ ] **CODE-08**: New MCP tool `code_graph_query` lets Claude query the structured code graph mid-conversation, separate from the research graph's `search`/`ask` tools
+
 ## v3 Requirements (deferred)
 
 - **V3-01**: Reputation system — peers that share valuable content rank higher
@@ -75,16 +86,17 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PEER-01..05 | Phase 15 | Pending |
-| SEC-01..06 | Phase 15 | Pending |
-| SHARE-01..06 | Phase 16 | Pending |
-| FED-01..05 | Phase 17 | Pending |
-| DISC-01..04 | Phase 17 | Pending |
+| PEER-01..05 | Phase 15 | ✓ Complete |
+| SEC-01..06 | Phase 15 | ✓ Complete |
+| SHARE-01..06 | Phase 16 | ✓ Complete |
+| FED-01..05 | Phase 17 | ✓ Complete |
+| DISC-01..04 | Phase 17 | ✓ Complete (DISC-04 deferred to v3) |
 | NET-01..04 | Phase 18 | Pending |
+| CODE-01..08 | Phase 19 | Pending |
 
 **Coverage:**
-- v2.0 requirements: 30 total
-- Mapped to phases: 30
+- v2.0 requirements: 38 total (30 P2P + 8 codebase indexing)
+- Mapped to phases: 38
 - Unmapped: 0 ✓
 
 ---
