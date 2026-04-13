@@ -41,7 +41,7 @@
 | **MCP servers/memory** (official) | [modelcontextprotocol/servers](https://github.com/modelcontextprotocol/servers) (memory subdir) | 83,621 (repo total) | 2026-03-29 | MIT | Yes | None published | — | Knowledge-graph-style entity store. No retrieval benchmark. | Official Anthropic reference implementation; uses in-memory JSON graph, not vector search |
 | **mem0 / OpenMemory MCP** | Part of [mem0ai/mem0](https://github.com/mem0ai/mem0/tree/main/openmemory) | 52,865 (repo total) | 2026-04-12 | Apache-2.0 | Yes (OpenMemory subdir) | No dedicated MCP benchmark; see mem0 LOCOMO above | — | OpenMemory is the MCP wrapper for mem0. No separate IR benchmark published for the MCP tier. | Local + private framing; MCP server in `/openmemory/api/` |
 | **Engram** | [Gentleman-Programming/engram](https://github.com/Gentleman-Programming/engram) | 2,484 | 2026-04-12 | MIT | Yes (Go binary, native stdio MCP) | 80% LOCOMO | LOCOMO | See Table 1 | Single binary, SQLite + FTS5, zero Docker; most operationally simple MCP memory server with a published number |
-| **wellinformed** | [SaharBarak/wellinformed](https://github.com/SaharBarak/wellinformed) | — (private) | 2026-04-12 | — | Yes (15 tools, primary purpose) | 96.8% NDCG@10, 100% R@5 | BEIR/HotPotQA-style (15 passages, 10 multi-hop queries, all-MiniLM-L6-v2) | **Own benchmark.** Embedded in `npm test` (243 tests). Methodology is a mini-BEIR harness, not the full 5,000-query BEIR suite. Small sample. | Comparable to mcp-memory-service only on embedding model; different benchmarks prevent direct comparison |
+| **wellinformed (Wave 2)** | [SaharBarak/wellinformed](https://github.com/SaharBarak/wellinformed) | — | 2026-04-14 | MIT | Yes (16 tools, primary purpose) | **72.30% NDCG@10, 79.76% R@5 (SciFact)** · **34.11% NDCG@10 (NFCorpus)** | Full BEIR v1 (SciFact 5,183×300, NFCorpus 3,633×323) | **Full-scale BEIR.** `node scripts/bench-beir-sota.mjs scifact --hybrid`. Hybrid dense (nomic-embed-text-v1.5) + BM25 FTS5 + RRF k=60. 137M params, CPU 36ms p50. Waves 3 & 4 documented failures. | Directly comparable to MTEB leaderboard; Wave 2 within ~2 NDCG points of bge-base-en-v1.5 (74.0) |
 
 ---
 
@@ -59,20 +59,24 @@
 
 ---
 
-## Embedding Model Baseline: all-MiniLM-L6-v2 on MTEB
+## Embedding Model Baseline: nomic-embed-text-v1.5 on BEIR
 
-wellinformed uses `sentence-transformers/all-MiniLM-L6-v2` (384-dim, ONNX runtime, <10ms CPU inference). Its MTEB positioning:
+wellinformed's Wave 2 pipeline uses `nomic-ai/nomic-embed-text-v1.5` (768-dim, 8192-token context, ONNX runtime) paired with SQLite FTS5 BM25 via Reciprocal Rank Fusion (RRF, k=60). Position on the real BEIR leaderboard:
 
-| Model | MTEB Retrieval Score | Notes |
-|-------|---------------------|-------|
-| all-MiniLM-L6-v2 | ~49-51 NDCG (MTEB overall avg, 56.3 full MTEB) | Mid-tier. Competitive for speed/size tradeoff. Not SOTA for retrieval. |
-| BGE-Large-EN | ~52.3 BEIR NDCG@10 | Stronger retrieval, larger |
-| Cohere Embed v4 | ~53.7 BEIR NDCG@10 | API only |
-| Voyage-Large-2 | ~54.8 BEIR NDCG@10 | API only, top open leaderboard |
+| Model | Params | BEIR SciFact NDCG@10 | Runtime |
+|-------|--------|----------------------|---------|
+| BM25 (Anserini) | — | 66.5 | CPU |
+| all-MiniLM-L6-v2 (v1 baseline) | 23M | 64.82 | CPU |
+| nomic-embed-text-v1.5 (dense only) | 137M | ~71 | CPU |
+| **wellinformed Wave 2 (nomic + BM25 hybrid)** | **137M** | **72.30** | **CPU, 36ms p50** |
+| E5-base-v2 (dense only) | 109M | 73.1 | CPU |
+| bge-base-en-v1.5 (dense only) | 110M | 74.0 | CPU |
+| bge-large-en-v1.5 (dense only) | 335M | 74.6 | CPU |
+| monoT5-3B reranker on top | 3B | 76.7 | **GPU** |
 
-Source: [MTEB leaderboard](https://huggingface.co/spaces/mteb/leaderboard); [ailog BEIR overview](https://app.ailog.fr/en/blog/news/beir-benchmark-update)
+Sources: [MTEB leaderboard](https://huggingface.co/spaces/mteb/leaderboard), [Brewing BEIR (Kamalloo et al., SIGIR 2024)](https://arxiv.org/abs/2306.07471), [nomic embed tech report (arXiv:2402.01613)](https://arxiv.org/abs/2402.01613), [BGE paper (arXiv:2309.07597)](https://arxiv.org/abs/2309.07597)
 
-**Implication for wellinformed's 96.8% NDCG@10:** The benchmark is a mini-BEIR harness (15 passages, 10 queries) run at test time, not the full BEIR suite. The high number reflects the embedding model working well on the specific passage set — it cannot be directly compared to full MTEB BEIR scores from the leaderboard.
+**Implication for wellinformed's 72.30% NDCG@10:** Wave 2 lands ~2 points below the best dense-only encoders at our parameter budget, ~4.4 points below GPU-required reranker stacks, and well above the BM25 and v1 baselines. For a 137M-param CPU-local model with zero new dependencies (FTS5 is already in SQLite), this is competitive. Both Wave 3 (cross-encoder reranker) and Wave 4 (room-aware routing) were tested and documented as failures in BENCH-v2.md §2b and §2c.
 
 ---
 
@@ -90,11 +94,12 @@ Source: [MTEB leaderboard](https://huggingface.co/spaces/mteb/leaderboard); [ail
 
 5. **Code graph integration (Phase 19)** — tree-sitter-based structured indexing of your own codebase alongside external research. Bridges the gap between agent memory tools (mem0, Graphiti) and code intelligence tools (Continue, Aider) — a niche none of the above occupy.
 
-**Where wellinformed's benchmark claim is weaker:**
+**Where wellinformed's benchmark claim is honest (and documented):**
 
-- The 96.8% NDCG@10 and 100% R@5 are from a 15-passage, 10-query test harness, not the full BEIR suite (5,183 queries for HotPotQA). Scale is incomparable to mem0's LOCOMO (1,540 questions) or Mastra's LongMemEval (500 questions).
-- The underlying embedding model (all-MiniLM-L6-v2) places mid-tier on MTEB (~49-51 NDCG), meaning retrieval quality ceiling is lower than tools using Cohere/Voyage/BGE-Large.
-- No published score on a shared standard benchmark (LOCOMO, LongMemEval, BEIR full suite). This is a gap that would need to be filled to make a credible SOTA claim.
+- **Wave 2 = 72.30% NDCG@10** on BEIR SciFact (full 5,183 × 300, not a mini-harness) via hybrid nomic-embed-text-v1.5 + BM25 RRF. Reproducible from `node scripts/bench-beir-sota.mjs scifact --hybrid`. Within ~2 points of bge-base-en-v1.5 (74.0) at the same parameter budget, ~4.4 points below GPU reranker stacks (monoT5-3B = 76.7).
+- **Wave 3 failed.** Adding `Xenova/bge-reranker-base` cross-encoder regressed NDCG@10 to 70.38% (−1.92 points) with 25.9s p50 latency — generic MS-MARCO reranker has severe domain mismatch with scientific text. Documented in BENCH-v2.md §2b.
+- **Wave 4 produced a null result.** Oracle room-routing on CQADupStack (3 subforums, 79,411 passages, 2,905 queries) beat flat hybrid by only +0.34 NDCG@10 — statistically null. The room architecture is valuable for namespaces/permissions/discovery, not for retrieval quality. Documented in BENCH-v2.md §2c.
+- **Prior 96.8% NDCG@10 number was retired** as a reportable metric. It was a 15-passage × 10-query mini-harness — too small to produce a leaderboard-comparable number. It survives only as a smoke test in `npm test`.
 
 **Market niche:** wellinformed is the only tool positioning as a *personal research knowledge graph* that also serves as an MCP server for coding agents — combining the research/reading workflow (papers, blogs, HN) with codebase intelligence and peer sharing. Mem0 is conversation memory. Graphiti/Zep is temporal entity memory. Engram/mcp-memory-service are session memory. None of those overlap with wellinformed's "your reading + your code + trending repos, all searchable from Claude" positioning.
 
@@ -115,5 +120,7 @@ Source: [MTEB leaderboard](https://huggingface.co/spaces/mteb/leaderboard); [ail
 | mcp-memory-service 86.0% R@5 | [doobidoo README](https://github.com/doobidoo/mcp-memory-service) |
 | all-MiniLM-L6-v2 MTEB score | [HF model page](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2); [ailog BEIR](https://app.ailog.fr/en/blog/news/beir-benchmark-update) |
 | Aider SWE-bench 26.3% | [aider.chat](https://aider.chat/2024/05/22/swe-bench-lite.html) |
-| wellinformed 96.8% NDCG@10 / 100% R@5 | README benchmark table; embedded in `npm test` |
+| wellinformed Wave 2 72.30% NDCG@10 / 79.76% R@5 (BEIR SciFact) | `scripts/bench-beir-sota.mjs`; results.json at `~/.wellinformed/bench/scifact__nomic-ai-nomic-embed-text-v1-5__hybrid/results.json` |
+| wellinformed Wave 3 reranker failure (−1.92 pts, 25.9s latency) | `scripts/bench-beir-sota.mjs scifact --hybrid --rerank`; root-cause verified via `scripts/debug-reranker.mjs` |
+| wellinformed Wave 4 room-routing null result (+0.34 oracle lift on CQADupStack) | `scripts/bench-room-routing.mjs`; results.json at `~/.wellinformed/bench/rooms__mathematica-webmasters-gaming__xenova-all-minilm-l6-v2/results.json` |
 | All star counts | `gh api repos/<owner>/<repo>` — verified 2026-04-12 |

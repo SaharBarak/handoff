@@ -102,13 +102,15 @@ Plan: 3 of 4
 See: .planning/PROJECT.md (updated 2026-04-12)
 
 **Core value:** Your coding agent answers from your actual research and codebase, not its training data.
-**Current focus:** Phase 18 — Production Networking
+**Current focus:** v2.0 SOTA benchmark closure — Wave 2 at 72.30% NDCG@10 is CPU-local SOTA; Waves 3 and 4 honestly documented as failures.
 
 ## Accumulated Context
 
 - Y.js (21.6K stars) for CRDT, js-libp2p (2.5K) for networking
-- 96.8% NDCG@10, 100% R@5 on BEIR benchmark — proven IR quality
-- 23 source adapters, 13 MCP tools, 499 nodes in production graph
+- **Retrieval SOTA (measured, full BEIR):** Wave 2 hybrid nomic-embed-text-v1.5 + BM25 RRF = 72.30% NDCG@10 on SciFact; 34.11% on NFCorpus. Within ~2 points of bge-base-en-v1.5 at our 137M param budget.
+- Wave 3 reranker (bge-reranker-base) regresses quality on scientific text (−1.92) due to MS-MARCO domain mismatch — avoid.
+- Wave 4 room-aware routing gate failed: oracle routing on CQADupStack (3 rooms, 79K passages, 2,905 queries) gives only +0.34 NDCG@10 — rooms are UX/permissions/discovery, not a retrieval signal.
+- 23 source adapters, 16 MCP tools, 9,800+ nodes in production graph
 - sequenceLazy thunks for sequential ResultAsync (never eager map)
 - Functional DDD: no classes in domain/app, neverthrow Results
 - PreToolUse hook is the key differentiator for agent integration

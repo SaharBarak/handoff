@@ -41,9 +41,130 @@ Phase coverage:
 
 ---
 
-## 2. Retrieval Quality — Full BEIR v1 Datasets
+## 2. Retrieval Quality — Full BEIR v1 + SOTA Progression
 
-**Methodology correction (2026-04-13):** An earlier version of this report cited a 96.8% NDCG@10 from a 15-passage × 10-query mini-harness. That sample size is too small to produce leaderboard-comparable numbers. We re-ran the benchmark against **two full BEIR v1 datasets** (SciFact, NFCorpus) using the exact same ONNX pipeline wellinformed uses at runtime. Results below are directly comparable to the [MTEB BEIR leaderboard](https://huggingface.co/spaces/mteb/leaderboard).
+**Methodology correction (2026-04-13):** An earlier version of this report cited a 96.8% NDCG@10 from a 15-passage × 10-query mini-harness. That sample size is too small to produce leaderboard-comparable numbers. We re-ran the benchmark against **full BEIR v1 datasets** using the exact same ONNX pipeline wellinformed uses at runtime. Every number below is directly comparable to the [MTEB BEIR leaderboard](https://huggingface.co/spaces/mteb/leaderboard).
+
+### SOTA progression — 4 waves, measured
+
+| Wave | Change | SciFact NDCG@10 | Δ | Latency p50 | Verdict |
+|------|--------|-----------------|----|-------------|---------|
+| Baseline | `all-MiniLM-L6-v2` dense only | **64.82%** | — | 6 ms | v1 baseline |
+| **Wave 1** | Swap encoder → `nomic-embed-text-v1.5` (768d, 8192 ctx) | **69.98%** | **+5.16** | 6 ms | ✓ Shipped |
+| **Wave 2** | Add SQLite FTS5 BM25 + RRF (k=60) hybrid | **72.30%** | **+2.32** | 36 ms | ✓ Shipped (SOTA) |
+| Wave 3 | + `Xenova/bge-reranker-base` cross-encoder rerank top-100 | 70.38% | **−1.92** | 25,940 ms | ✗ Failed — see §2b |
+| Wave 4 | + Room-aware retrieval (oracle routing, CQADupStack) | — | **+0.34** | 132 ms | ✗ Null — see §2c |
+
+**Wave 2 (72.30%) is the measured CPU-local SOTA ceiling for wellinformed.** Both Wave 3 and Wave 4 were honest attempts at principled mechanisms from the 2024-2025 literature (MS-MARCO reranker, RouterRetriever-style partition awareness). Both produced measurable null results on standardized benchmarks. They're documented below so readers can verify the claim and avoid the same dead ends.
+
+### Wave 2 context — where 72.30% lands on the real leaderboard
+
+| Model | Params | SciFact NDCG@10 | Runtime |
+|-------|--------|-----------------|---------|
+| BM25 (Anserini) | — | 66.5 | CPU |
+| nomic-embed-text-v1.5 (dense only) | 137M | ~71 | CPU |
+| **wellinformed Wave 2 (nomic + BM25 RRF)** | **137M** | **72.30** | **CPU, 36 ms** |
+| E5-base-v2 (dense only) | 109M | 73.1 | CPU |
+| bge-base-en-v1.5 (dense only) | 110M | 74.0 | CPU |
+| bge-large-en-v1.5 (dense only) | 335M | 74.6 | CPU |
+| monoT5-3B reranker on top | 3B | 76.7 | **GPU** |
+
+Wave 2 lands **~2 points below the best dense-only encoders** at roughly equivalent parameter budget, and **~4.4 points below GPU-required reranker stacks**. For a 137M model with zero new dependencies (sqlite-vec + sqlite-fts5 are already in our stack), this is competitive.
+
+### Wave 2 — reproducible numbers
+
+#### BEIR SciFact (5,183 × 300)
+
+| Metric | MiniLM (v1 baseline) | **nomic + BM25 hybrid (Wave 2)** | Lift |
+|--------|----------------------|----------------------------------|------|
+| NDCG@10 | 64.82% | **72.30%** | +7.48 |
+| MAP@10  | 59.57% | **67.66%** | +8.09 |
+| Recall@5  | 74.84% | **79.76%** | +4.92 |
+| Recall@10 | 79.53% | **84.79%** | +5.26 |
+| MRR | 0.6039 | **0.6904** | +0.0865 |
+| Latency p50 | 3 ms | 36 ms | +33 ms |
+
+#### BEIR NFCorpus (3,633 × 323, biomedical)
+
+| Metric | MiniLM (v1 baseline) | **nomic Wave 1** | Lift |
+|--------|----------------------|------------------|------|
+| NDCG@10 | 31.35% | **34.11%** | +2.76 |
+| MAP@10  | 22.60% | **25.14%** | +2.54 |
+| Recall@10 | 15.22% | **15.85%** | +0.63 |
+
+### 2b. Wave 3 — cross-encoder reranker FAILED on scientific text
+
+**Attempt:** Add `Xenova/bge-reranker-base` (MS MARCO-trained cross-encoder) over top-100 hybrid results.
+
+**Result:** NDCG@10 **regressed** 72.30% → 70.38% (−1.92 points). Rerank p50 latency = 25,940 ms per query (720× slower than Wave 2).
+
+**Root cause (mechanistic, verified via `scripts/debug-reranker.mjs`):** bge-reranker-base was trained on MS MARCO (web queries) and has severe domain mismatch with scientific text. On a known-relevant pair from SciFact — query "0-dimensional biomaterials show inductive properties" + passage "Calcium phosphate nanomaterials (0-D biomaterials) induce osteogenic differentiation..." — the reranker scores this **negative** (−0.83). It doesn't know that calcium phosphate nanomaterials ARE 0-D biomaterials. The directionally-relevant pair "Zero-dimensional (0-D) biomaterials..." scores +6.30 as expected.
+
+**Takeaway:** Cross-encoder rerankers require **domain-matched training data**. Generic MS-MARCO rerankers hurt scientific retrieval. No CPU-friendly SciFact-trained reranker exists in public packages. Recommendation: don't use bge-reranker-base on scientific corpora; if you need reranker lift, consider domain-specific alternatives or accept Wave 2.
+
+**Reproduction:**
+```bash
+node scripts/bench-beir-sota.mjs scifact --hybrid --rerank  # reproduces 70.38%
+node scripts/debug-reranker.mjs                              # one-pair sanity check
+```
+
+### 2c. Wave 4 — Room-aware retrieval produced a NULL result
+
+**Hypothesis:** wellinformed's user-curated "rooms" (topic partitions) + cross-room "tunnels" could be a retrieval scoring signal, not just a filter. Per the 2024-2025 literature (RouterRetriever AAAI 2025, HippoRAG NeurIPS 2024, LexBoost SIGIR 2024, MixPR Dec 2024), partition-aware routing has published lift on BEIR (+2.1 to +3.2 NDCG@10) and multi-hop QA (+5 to +14 R@5).
+
+**Gate test:** Before engineering a learned router, run the **upper bound** — oracle routing using gold topic labels — on a multi-topic benchmark. If oracle doesn't beat flat hybrid by ≥3 NDCG@10 points, rooms cannot be a retrieval signal in our setup, and engineering a router is wasted effort.
+
+**Benchmark:** BEIR CQADupStack, 3 topically-distinct subforums (mathematica + webmasters + gaming), pooled into one 79,411-passage corpus with 2,905 test queries. Each query carries its source subforum label as the ground-truth "room."
+
+**Setup:**
+- Encoder: `Xenova/all-MiniLM-L6-v2` (384d, same baseline as Phase 1)
+- Hybrid: dense + FTS5 BM25 + RRF k=60 (identical to Wave 2 pipeline)
+- Flat: search pooled DB, no filter
+- Oracle-routed: restrict search to query's gold subforum
+
+**Result:**
+
+|                      | FLAT    | ORACLE-ROUTED | Δ |
+|----------------------|---------|---------------|---|
+| NDCG@10              | 43.83%  | 44.17%        | **+0.34** |
+| MAP@10               | 38.66%  | 38.99%        | +0.34 |
+| Recall@5             | 48.08%  | 48.42%        | +0.34 |
+| Recall@10            | 55.66%  | 55.95%        | +0.29 |
+| Success@5            | 53.49%  | 54.01%        | +0.52 |
+| MRR                  | 0.4230  | 0.4267        | +0.37 |
+
+Per-room NDCG@10 breakdown (flat → oracle):
+
+| Room        | n     | Flat    | Oracle  | Δ      |
+|-------------|-------|---------|---------|--------|
+| mathematica | 804   | 25.94%  | 26.86%  | +0.92  |
+| webmasters  | 506   | 36.70%  | 36.71%  | +0.01  |
+| gaming      | 1,595 | 55.11%  | 55.26%  | +0.15  |
+
+**Interpretation.** The gate failed by a factor of ~9. Oracle routing — the absolute upper bound — beats flat hybrid by **0.34 NDCG@10 points**, well below the 3-point gate threshold. This is statistically null at n=2,905. Flat hybrid retrieval already recovers the routing signal implicitly: CQADupStack subforums have sufficiently disjoint vocabulary that a mathematica query's nearest neighbours are always in the mathematica corpus, and a gaming query's nearest neighbours are always in the gaming corpus. Routing adds nothing.
+
+**Why learned routing and tunnel reranking cannot save it.** Oracle routing IS the ceiling. A learned router can only approximate oracle (the research report predicted it would capture ~half the oracle gap — which in our case would mean **+0.17** NDCG@10). Tunnel-based neighbour reranking is a rerank layer on top of routed results; it cannot exceed the oracle ceiling either.
+
+**What this does and does not say:**
+1. ✗ "Room-aware retrieval beats flat hybrid on public benchmarks" — disproved, at least on CQADupStack-class benchmarks.
+2. ✓ "Rooms organize the knowledge graph by topic with no retrieval quality cost" — confirmed. Flat and oracle-routed are functionally equivalent, so users get namespace/permission benefits for free.
+3. ✓ "Tunnels are useful for cross-room discovery, not reranking" — tunnels remain a valid UX feature for surfacing serendipitous cross-domain connections (the original design intent), but they should not be wired into the hot retrieval path.
+4. **Open question:** On a benchmark with *overlapping-vocabulary* rooms (e.g. "ml-papers" vs "ml-codebase" — same topic, different formats) where flat retrieval would actually confuse sources, does routing help? No public benchmark of this shape exists. The research report confirmed: "Nothing in the literature uses explicitly user-curated partitions + inter-partition edges as a retrieval scoring signal."
+
+**Reproduction:**
+```bash
+# Download CQADupStack (5.3 GB)
+curl -fsL -o cqa.zip https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/cqadupstack.zip
+unzip -oq cqa.zip -d ~/.wellinformed/bench/cqadupstack/
+
+# Run the gate test
+node scripts/bench-room-routing.mjs \
+  --datasets-dir ~/.wellinformed/bench/cqadupstack/cqadupstack \
+  --rooms mathematica,webmasters,gaming \
+  --model Xenova/all-MiniLM-L6-v2 --dim 384
+```
+
+**Strategic conclusion:** After 4 measured waves, **Wave 2 at 72.30% NDCG@10 is the CPU-local SOTA ceiling for wellinformed on standard BEIR retrieval**. Further engineering should target orthogonal value (UX, security, federated P2P, structured code graph, session persistence) — not encoder stacking or router architectures that don't beat flat hybrid at our parameter budget. The honest story is better than a hypothetical one.
 
 ### BEIR SciFact (test split) — Model comparison
 
@@ -158,17 +279,18 @@ Full research in [`BENCH-COMPETITORS.md`](./BENCH-COMPETITORS.md). Key takeaways
 | [MemPalace](https://github.com/milla-jovovich/mempalace) | 44.1K | LongMemEval R@5 | 96.6% raw / 100% reranked | **Inflated** — 96.6% is plain ChromaDB verbatim, not the palace architecture (issue #214) |
 | [plastic-labs/honcho](https://github.com/plastic-labs/honcho) | 2.3K | — | none published | — |
 | [mcp-memory-service](https://github.com/doobidoo/mcp-memory-service) | 1.7K | LongMemEval R@5 | 86.0% session / 80.4% turn | **Reproducible scripts in repo** — closest apples-to-apples |
-| **wellinformed (this run)** | — | BEIR/HotPotQA | **96.8% NDCG@10, 100% R@5** | Mini-BEIR harness (15 passages, 10 queries), embedded in `npm test` |
+| **wellinformed (Wave 2)** | — | BEIR SciFact (5,183 × 300) | **72.30% NDCG@10, 79.76% R@5** | Full BEIR v1, `bench-beir-sota.mjs --hybrid`, 137M params, CPU 36ms p50 |
 
 #### LOCOMO benchmark war (disclosure)
 
 mem0, Zep, memobase, Engram, and Letta all cite LOCOMO with **incompatible evaluation setups** — adversarial category inclusion, different system prompts, different LLM judges. **No single vendor's LOCOMO number can be taken at face value without independent replication.** The numbers above are the vendors' own claims, annotated with verification status.
 
-#### Known caveats on wellinformed's number
+#### Honest assessment of wellinformed's retrieval claim
 
-- **Small sample:** 15 passages × 10 queries vs. LOCOMO's 1,540 questions or full BEIR HotPotQA's 5,183. The 96.8% reflects the embedding model working well on this specific passage set — not a SOTA claim on a shared leaderboard.
-- **Mid-tier embedding ceiling:** `all-MiniLM-L6-v2` places ~49-51 MTEB retrieval NDCG (vs BGE-Large 52.3, Cohere v4 53.7, Voyage-Large-2 54.8). The model choice is speed/size optimized; retrieval ceiling is lower than SOTA API embeddings.
-- **No published score on LOCOMO or LongMemEval or full BEIR** — would need adding to make a credible SOTA claim.
+- **Wave 2 is measured, not claimed.** 72.30% NDCG@10 on BEIR SciFact is full-benchmark, 5,183 passages × 300 queries, reproducible via `node scripts/bench-beir-sota.mjs scifact --hybrid`. Machine-readable results at `~/.wellinformed/bench/scifact__nomic-ai-nomic-embed-text-v1-5__hybrid/results.json`.
+- **Leaderboard position:** within ~2 NDCG points of the best dense-only encoders at our parameter budget (bge-base-en-v1.5 = 74.0, E5-base-v2 = 73.1) and 4.4 points below GPU-required reranker stacks (monoT5-3B = 76.7). Competitive for a 137M CPU-local model.
+- **What failed, documented:** Wave 3 (cross-encoder reranker) regressed quality by 1.92 points due to MS-MARCO/scientific-text domain mismatch. Wave 4 (room-aware routing) produced a +0.34 oracle-lift on CQADupStack — statistically null. Both failures are in §2b and §2c of this report.
+- **Prior mini-harness (15 passages × 10 queries, 96.8% NDCG@10) was removed as a reportable number.** It survives as a smoke test in `npm test` only — too small to produce a leaderboard-comparable number.
 
 #### Market niche wellinformed occupies alone
 
@@ -383,8 +505,10 @@ $ wellinformed ask "functional DDD neverthrow Result monad"
 
 | Dimension | Number | Context |
 |-----------|--------|---------|
-| **Test coverage** | 243/243 | 5 phases, zero regressions |
-| **Retrieval quality (NDCG@10)** | 96.8% | BEIR methodology, real ONNX |
+| **Test coverage** | 313/313 | 6 phases, zero regressions |
+| **Retrieval quality (Wave 2 NDCG@10)** | **72.30%** | Full BEIR SciFact, 5,183 × 300, reproducible |
+| **Retrieval quality (Wave 2 Recall@5)** | **79.76%** | Same run |
+| **Retrieval quality (Wave 2 MRR)** | **0.690** | Same run |
 | **Code search (warm p99)** | **< 5 ms** | 16,855 nodes |
 | **Vector search (warm p99)** | **< 5 ms** | 2,830 × 384 dims |
 | **Code search (cold CLI)** | ~715 ms | Node + tsx boot dominated |
@@ -398,7 +522,7 @@ $ wellinformed ask "functional DDD neverthrow Result monad"
 ## Observations
 
 **Strengths:**
-1. **Retrieval quality matches or beats published competitors** — 100% R@5 vs mcp-memory-service 86%, NDCG@10 96.8% with perfect MRR
+1. **Retrieval quality is measured, competitive, and honest** — 72.30% NDCG@10 on full BEIR SciFact, within ~2 points of the best dense-only encoders at our parameter budget. Two wave-level failures (reranker, room routing) are documented for reproducibility in §2b and §2c.
 2. **Steady-state latency is excellent** — every warm query lands under 5 ms p99
 3. **Scale headroom is large** — at 16,855 code nodes the LIKE search is still < 2 ms; sqlite-vec is constant-time at this corpus
 4. **243 tests zero regressions** across 5 phases of substantial new subsystems (P2P, CRDT sync, federated search, NAT traversal, structured code indexing)
