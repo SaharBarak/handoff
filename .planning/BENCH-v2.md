@@ -45,33 +45,67 @@ Phase coverage:
 
 **Methodology correction (2026-04-13):** An earlier version of this report cited a 96.8% NDCG@10 from a 15-passage × 10-query mini-harness. That sample size is too small to produce leaderboard-comparable numbers. We re-ran the benchmark against **two full BEIR v1 datasets** (SciFact, NFCorpus) using the exact same ONNX pipeline wellinformed uses at runtime. Results below are directly comparable to the [MTEB BEIR leaderboard](https://huggingface.co/spaces/mteb/leaderboard).
 
-### BEIR SciFact (test split)
+### BEIR SciFact (test split) — Model comparison
 
-| Metric | wellinformed | all-MiniLM-L6-v2 (published baseline) | BM25 (classical) | BGE-Large-EN | E5-Large-v2 |
-|--------|--------------|---------------------------------------|------------------|--------------|-------------|
-| Corpus | 5,183 passages | same | same | same | same |
-| Queries (test) | 300 | same | same | same | same |
-| **NDCG@10** | **64.82%** | 56-62% (MTEB ref) | 66.5% | 74.6% | 72.6% |
-| **MAP@10** | **59.57%** | — | — | — | — |
-| **Recall@5** | **74.84%** | — | — | — | — |
-| **Recall@10** | **79.53%** | — | — | — | — |
-| **MRR** | **0.6039** | — | — | — | — |
+| Metric | MiniLM-L6-v2 (v1 baseline) | **nomic-embed-text-v1.5** (current) | BM25 | BGE-Large | E5-Large |
+|--------|----------------------------|-------------------------------------|------|-----------|----------|
+| Corpus | 5,183 | 5,183 | — | — | — |
+| Queries | 300 | 300 | — | — | — |
+| **NDCG@10** | 64.82% | **69.98%** (+5.16) | 66.5% | 74.6% | 72.6% |
+| **MAP@10** | 59.57% | **65.19%** (+5.62) | — | — | — |
+| **Recall@5** | 74.84% | **76.26%** (+1.42) | — | — | — |
+| **Recall@10** | 79.53% | **83.12%** (+3.59) | — | — | — |
+| **MRR** | 0.6039 | **0.6668** (+0.063) | — | — | — |
+| **Latency p99** | 3 ms | 6 ms | — | — | — |
+| Indexing rate | 19 docs/sec | 4 docs/sec | — | — | — |
 
-**wellinformed's 64.82% NDCG@10 is above the MTEB-published baseline for `all-MiniLM-L6-v2` (56-62%) and close to classical BM25 (66.5%)**. The bigger transformer models (BGE-Large, E5-Large) beat it as expected — they are ~3× larger parameter counts. Our pipeline extracts the full published ceiling from this embedding model.
+**nomic-embed-text-v1.5 beats classical BM25 on SciFact** (69.98% vs 66.5%) and lands in the 65-75% retrieval tier alongside BGE-Large (74.6%) and E5-Large (72.6%). The measured number (69.98%) matches Nomic's own published benchmark (70.36%) within 0.4 NDCG points, confirming the pipeline correctly loads the model via `@xenova/transformers@2.17.2` with `search_document:` / `search_query:` prefixes and 768-dim vec0 tables.
 
-### BEIR NFCorpus (test split, biomedical)
+### BEIR NFCorpus (test split, biomedical) — Model comparison
 
-| Metric | wellinformed | BM25 (Anserini) | all-MiniLM-L6-v2 (published) | BGE-Large-EN | E5-Large-v2 |
-|--------|--------------|-----------------|------------------------------|--------------|-------------|
-| Corpus | 3,633 passages | same | same | same | same |
-| Queries (test) | 323 | same | same | same | same |
-| **NDCG@10** | **31.35%** | 32.5% | ~28-32% | 34.5% | 36.6% |
-| **MAP@10** | 22.60% | — | — | — | — |
-| **Recall@5** | 11.53% | — | — | — | — |
-| **Recall@10** | 15.22% | — | — | — | — |
-| **MRR** | 0.5056 | — | — | — | — |
+| Metric | MiniLM-L6-v2 (v1 baseline) | **nomic-embed-text-v1.5** (current) | BM25 | BGE-Large | E5-Large |
+|--------|----------------------------|-------------------------------------|------|-----------|----------|
+| Corpus | 3,633 | 3,633 | — | — | — |
+| Queries | 323 | 323 | — | — | — |
+| **NDCG@10** | 31.35% | **34.11%** (+2.76) | 32.5% | 34.5% | 36.6% |
+| **MAP@10** | 22.60% | **25.14%** (+2.54) | — | — | — |
+| **Recall@5** | 11.53% | **12.82%** (+1.29) | — | — | — |
+| **Recall@10** | 15.22% | **15.85%** (+0.63) | — | — | — |
+| **MRR** | 0.5056 | **0.5387** (+0.033) | — | — | — |
 
-**At parity with both BM25 and the published all-MiniLM-L6-v2 NFCorpus score.** NFCorpus is known to be hard for general-purpose embeddings (biomedical jargon). The low Recall@5 reflects NFCorpus's high relevant-docs-per-query average (~20+).
+**nomic beats BM25 on NFCorpus** (34.11% vs 32.5%) and approaches BGE-Large (34.5%). NFCorpus is biomedical — general-purpose embeddings have a quality ceiling here.
+
+### Wave 1 summary — model swap only
+
+| What changed | Before | After |
+|---|---|---|
+| Model | `Xenova/all-MiniLM-L6-v2` | `nomic-ai/nomic-embed-text-v1.5` |
+| Dimensions | 384 | 768 |
+| ONNX size | ~25 MB | ~550 MB |
+| Context window | 512 tokens | 8192 tokens |
+| SciFact NDCG@10 | 64.82% | **69.98%** (+5.16) |
+| NFCorpus NDCG@10 | 31.35% | **34.11%** (+2.76) |
+| Query latency p99 | 3 ms | 6 ms |
+| Index throughput | 19 docs/sec | 4 docs/sec |
+| npm deps added | — | **0** |
+
+Wave 1 (model swap) of the SOTA upgrade path from `.planning/SOTA-UPGRADE-PLAN.md` is measured and verified. Wave 2 (hybrid BM25 + RRF) and Wave 3 (cross-encoder reranker) remain as further gains if desired — both also zero-dep.
+
+### Reproduce the comparison
+
+```bash
+# baseline (MiniLM)
+node scripts/bench-beir.mjs scifact
+node scripts/bench-beir.mjs nfcorpus
+
+# nomic
+node scripts/bench-beir.mjs scifact \
+  --model nomic-ai/nomic-embed-text-v1.5 --dim 768 \
+  --doc-prefix "search_document: " --query-prefix "search_query: "
+node scripts/bench-beir.mjs nfcorpus \
+  --model nomic-ai/nomic-embed-text-v1.5 --dim 768 \
+  --doc-prefix "search_document: " --query-prefix "search_query: "
+```
 
 ### Latency under real BEIR load
 
