@@ -104,19 +104,19 @@ Plans:
 3. `wellinformed codebase search <query>` returns code nodes by semantic match across attached codebases
 4. New MCP tool `code_graph_query` lets Claude query the structured code graph independently of research rooms
 
-## Phase 20: Session Persistence
+## Phase 20: Session Persistence ✓ COMPLETE 2026-04-13
 
-**Goal:** Auto-persist every Claude Code session's progress into wellinformed so context survives kills, crashes, and restarts. No explicit user request. The gap: Claude Code already writes session JSONL to `~/.claude/projects/<hash>/*.jsonl` but nothing reads it — so new sessions start blind. This phase closes that gap end-to-end.
+**Goal:** Auto-persist every Claude Code session's progress into wellinformed so context survives kills, crashes, and restarts. No explicit user request.
 
-**Requirements:** SESS-01..08
+**Requirements:** SESS-01..08 (all complete)
 
-**Plans:** 4 plans
+**Plans:** 4/4 complete
 
 Plans:
-- [ ] 20-01-PLAN.md — Foundation: SessionError 5-variant + AppError union + exhaustive formatError, src/domain/sessions.ts (pure types + classifyJsonlEntry + hasKeySignal), AppConfig.sessions, SharedRoomRecord.shareable flag + v1→v2 migration
-- [ ] 20-02-PLAN.md — Infrastructure: sessions-state.ts (atomic tmp+rename), src/infrastructure/sources/claude-sessions.ts (walk + partial-line buffered reads + CLAUDE_SESSION_ID + mtime-5s skip + scanNode redaction), SourceKind extension + registry wiring
-- [ ] 20-03-PLAN.md — Integration: session-ingest use case + daemon tick auto-provisioning + enforceRetention, recent-sessions CLI, 16th MCP tool recent_sessions, share CLI hard-refuse (hardcoded + flag), PreToolUse hook SessionStart branch (idempotent), phase17 C2 test bumped 15→16
-- [ ] 20-04-PLAN.md — TDD suite: 13 describe groups + ≥35 tests, covers SESS-01..08 + 7 critical pitfalls, 2 JSONL fixtures, scope-boundary + zero-deps regression locks
+- [x] 20-01-PLAN.md — Foundation: SessionError 5-variant union, src/domain/sessions.ts (254 lines, pure types + helpers), AppConfig.sessions, SharedRoomRecord.shareable v1→v2 migration — DONE 2026-04-13
+- [x] 20-02-PLAN.md — Infrastructure: sessions-state.ts (242 lines, atomic lock+tmp+rename), claude-sessions.ts (368 lines, 3 pitfalls: mtime+env skip, buffered tail, scanNode redaction), SourceKind + registry wiring — DONE 2026-04-13
+- [x] 20-03-PLAN.md — Integration: session-ingest + daemon auto-provision + enforceRetention, recent-sessions CLI, 16th MCP tool, share hard-refuse (double defense), PreToolUse SessionStart branch (idempotent), phase17 C2 bumped 15→16 — DONE 2026-04-13
+- [x] 20-04-PLAN.md — TDD suite: tests/phase20.sessions.test.ts (686 lines, 13 describe groups, 70 tests, 313/313 full suite pass) + 2 JSONL fixtures — DONE 2026-04-13
 
 **Success criteria:**
 1. `~/.claude/projects/<hash>/*.jsonl` files are indexed automatically (via daemon tick) into a dedicated `sessions` room
