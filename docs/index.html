@@ -628,18 +628,21 @@
     <div style="margin-top:3rem;padding-top:2rem;border-top:1px solid var(--border)" class="reveal d4">
       <div class="label" style="color:var(--accent-warm)">BEIR methodology, real ONNX</div>
       <h2 style="font-size:1.25rem;margin-bottom:1rem">Standardized benchmarks</h2>
-      <div class="glass" style="padding:1.5rem;font-family:var(--mono);font-size:0.8125rem;line-height:1.9;max-width:560px">
-        <div style="color:var(--text-muted);margin-bottom:0.75rem">15 passages, 10 queries, all-MiniLM-L6-v2</div>
-        <div>NDCG@10: <span style="color:var(--accent);font-weight:700">96.8%</span></div>
-        <div>Recall@5: <span style="color:var(--accent);font-weight:700">100.0%</span></div>
-        <div>MRR: <span style="color:var(--accent);font-weight:700">1.000</span> <span style="color:var(--text-muted)">(first result always relevant)</span></div>
-        <div>Latency: <span style="color:var(--accent-cool);font-weight:700">3.1ms</span> <span style="color:var(--text-muted)">p50 (includes ONNX inference)</span></div>
-        <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border);color:var(--text-muted)">
-          <div>mcp-memory-service: 86.0% R@5</div>
-          <div>mem0 LOCOMO: 67.1%</div>
-          <div style="color:var(--accent)">wellinformed: 100.0% R@5, 96.8% NDCG@10</div>
+      <div class="glass" style="padding:1.5rem;font-family:var(--mono);font-size:0.8125rem;line-height:1.9;max-width:620px">
+        <div style="color:var(--text-muted);margin-bottom:0.75rem">Full BEIR v1, all-MiniLM-L6-v2 + sqlite-vec</div>
+        <div style="color:var(--accent-warm);font-weight:600">BEIR SciFact (5,183 × 300)</div>
+        <div>NDCG@10: <span style="color:var(--accent);font-weight:700">64.82%</span> <span style="color:var(--text-muted)">(BM25=66.5%, BGE-Large=74.6%)</span></div>
+        <div>Recall@5: <span style="color:var(--accent);font-weight:700">74.84%</span></div>
+        <div>MRR: <span style="color:var(--accent);font-weight:700">0.604</span></div>
+        <div>Latency: <span style="color:var(--accent-cool);font-weight:700">p50 2ms · p99 3ms</span></div>
+        <div style="margin-top:0.5rem;color:var(--accent-warm);font-weight:600">BEIR NFCorpus (3,633 × 323, biomedical)</div>
+        <div>NDCG@10: <span style="color:var(--accent);font-weight:700">31.35%</span> <span style="color:var(--text-muted)">(BM25=32.5%, ref MiniLM=28-32%)</span></div>
+        <div>Latency: <span style="color:var(--accent-cool);font-weight:700">p50 1ms · p99 2ms</span></div>
+        <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border);color:var(--text-muted);font-size:0.75rem">
+          Matches published baseline for all-MiniLM-L6-v2 on both datasets.<br/>
+          We do not claim SOTA — we match the ceiling of our chosen (fast, local, no-GPU) embedding model.
         </div>
-        <div style="margin-top:0.75rem;color:var(--text-muted);font-size:0.6875rem">Reproduce: npm test (243 tests across 5 v2.0 phases, includes ONNX benchmark + 10-peer libp2p mesh)</div>
+        <div style="margin-top:0.5rem;color:var(--text-muted);font-size:0.6875rem">Reproduce: node scripts/bench-beir.mjs scifact</div>
       </div>
     </div>
 

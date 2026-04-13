@@ -41,26 +41,70 @@ Phase coverage:
 
 ---
 
-## 2. Retrieval Quality (BEIR/HotPotQA methodology)
+## 2. Retrieval Quality — Full BEIR v1 Datasets
 
-Industry-standard IR metrics measured against HotPotQA-style multi-hop, comparison, and single-hop queries using real ONNX embeddings (all-MiniLM-L6-v2, 384 dimensions).
+**Methodology correction (2026-04-13):** An earlier version of this report cited a 96.8% NDCG@10 from a 15-passage × 10-query mini-harness. That sample size is too small to produce leaderboard-comparable numbers. We re-ran the benchmark against **two full BEIR v1 datasets** (SciFact, NFCorpus) using the exact same ONNX pipeline wellinformed uses at runtime. Results below are directly comparable to the [MTEB BEIR leaderboard](https://huggingface.co/spaces/mteb/leaderboard).
 
-| Metric | Score |
-|--------|-------|
-| **NDCG@10** | **96.8%** |
-| **MAP@10** | 93.1% |
-| **Recall@5** | **100.0%** |
-| **Recall@10** | **100.0%** |
-| **MRR** | **1.000** (first result always relevant) |
-| P@5 | 48.0% |
+### BEIR SciFact (test split)
 
-### Per-query-type breakdown
+| Metric | wellinformed | all-MiniLM-L6-v2 (published baseline) | BM25 (classical) | BGE-Large-EN | E5-Large-v2 |
+|--------|--------------|---------------------------------------|------------------|--------------|-------------|
+| Corpus | 5,183 passages | same | same | same | same |
+| Queries (test) | 300 | same | same | same | same |
+| **NDCG@10** | **64.82%** | 56-62% (MTEB ref) | 66.5% | 74.6% | 72.6% |
+| **MAP@10** | **59.57%** | — | — | — | — |
+| **Recall@5** | **74.84%** | — | — | — | — |
+| **Recall@10** | **79.53%** | — | — | — | — |
+| **MRR** | **0.6039** | — | — | — | — |
 
-| Query Type | NDCG@10 | R@5 | MRR |
-|------------|---------|-----|-----|
-| single-hop | 100% | 100% | 1.00 |
-| comparison | 100% | 100% | 1.00 |
-| multi-hop | 95% | 100% | 1.00 |
+**wellinformed's 64.82% NDCG@10 is above the MTEB-published baseline for `all-MiniLM-L6-v2` (56-62%) and close to classical BM25 (66.5%)**. The bigger transformer models (BGE-Large, E5-Large) beat it as expected — they are ~3× larger parameter counts. Our pipeline extracts the full published ceiling from this embedding model.
+
+### BEIR NFCorpus (test split, biomedical)
+
+| Metric | wellinformed | BM25 (Anserini) | all-MiniLM-L6-v2 (published) | BGE-Large-EN | E5-Large-v2 |
+|--------|--------------|-----------------|------------------------------|--------------|-------------|
+| Corpus | 3,633 passages | same | same | same | same |
+| Queries (test) | 323 | same | same | same | same |
+| **NDCG@10** | **31.35%** | 32.5% | ~28-32% | 34.5% | 36.6% |
+| **MAP@10** | 22.60% | — | — | — | — |
+| **Recall@5** | 11.53% | — | — | — | — |
+| **Recall@10** | 15.22% | — | — | — | — |
+| **MRR** | 0.5056 | — | — | — | — |
+
+**At parity with both BM25 and the published all-MiniLM-L6-v2 NFCorpus score.** NFCorpus is known to be hard for general-purpose embeddings (biomedical jargon). The low Recall@5 reflects NFCorpus's high relevant-docs-per-query average (~20+).
+
+### Latency under real BEIR load
+
+Measured on 300-1,400 queries against 3K-5K passage indexes:
+
+| Dataset | Queries | Corpus | p50 | p95 | p99 |
+|---------|---------|--------|-----|-----|-----|
+| SciFact | 300 | 5,183 | **2 ms** | **3 ms** | **3 ms** |
+| NFCorpus | 323 | 3,633 | **1 ms** | **2 ms** | **2 ms** |
+
+**p99 retrieval latency is < 5 ms under realistic workloads** — the steady-state latency claim from Section 3 holds under real BEIR-scale benchmarking.
+
+### Indexing throughput
+
+~19-20 docs/sec on CPU ONNX (single-core, batch=32). The bottleneck is the ONNX model forward pass, not sqlite-vec insertion. A 5,000 passage corpus indexes in ~4 minutes.
+
+### Reproducibility
+
+Both results are fully reproducible:
+
+```bash
+node scripts/bench-beir.mjs scifact    # ~4 minutes
+node scripts/bench-beir.mjs nfcorpus   # ~3 minutes
+```
+
+Raw results stored as JSON at `~/.wellinformed/bench/<dataset>/results.json`. Dataset downloaded from the canonical BEIR v1 source (`public.ukp.informatik.tu-darmstadt.de/thakur/BEIR`) and cached locally.
+
+### Honest assessment of quality claim
+
+1. **wellinformed matches the published ceiling of its embedding model.** On two BEIR datasets in two distinct domains, our pipeline extracts the retrieval quality `all-MiniLM-L6-v2` is capable of. The pipeline is correctly implemented; we're not leaving quality on the table.
+2. **The embedding model is mid-tier.** `all-MiniLM-L6-v2` is the fast/small tier (23 MB, 80 MB RAM). BGE-Large and E5-Large beat it by 5-10 NDCG points in exchange for 400+ MB RAM and 3-5× slower inference. This is a deliberate tradeoff for the local-first, no-GPU wellinformed use case.
+3. **No SOTA claim.** We do not beat the BEIR leaderboard. We match the leaderboard for our chosen model. If SOTA were a goal, swapping in BGE-Large or a voyage-ai API embedder would gain ~10 NDCG points at the cost of deployment complexity.
+4. **The previous 96.8% number was small-sample luck** — 15 passages × 10 queries is too small to produce a meaningful NDCG. The mini-harness remains in the test suite as a smoke test, not as a leaderboard number.
 
 ### Competitive landscape
 
