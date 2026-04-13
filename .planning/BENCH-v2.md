@@ -64,12 +64,49 @@ Industry-standard IR metrics measured against HotPotQA-style multi-hop, comparis
 
 ### Competitive landscape
 
-| System | Quality Metric |
-|--------|----------------|
-| mem0 LOCOMO | 67.1% LLM-as-Judge |
-| mcp-memory-service (claimed) | 86.0% R@5 |
-| **wellinformed** | **100.0% R@5, 96.8% NDCG@10** |
-| Cognee HotPotQA | (not published) |
+Full research in [`BENCH-COMPETITORS.md`](./BENCH-COMPETITORS.md). Key takeaways:
+
+#### Agent memory frameworks with published benchmarks
+
+| System | Stars | Benchmark | Claim | Verified? |
+|--------|-------|-----------|-------|-----------|
+| [mem0](https://github.com/mem0ai/mem0) | 52.9K | LOCOMO LLM-judge | 66.9% (plain) / 68.4% (graph) | ECAI 2025 paper; **disputed by Zep** |
+| [Graphiti/Zep](https://github.com/getzep/graphiti) | 24.8K | LOCOMO LLM-judge | 84% (orig) / 58.4% (Mem0 correction) / 75.1% (Zep counter) | **3-way dispute — treat all as contested** |
+| [Letta](https://github.com/letta-ai/letta) (ex-MemGPT) | 22.0K | LOCOMO | 74% with gpt-4o-mini + plain filesystem | Vendor blog only |
+| [Mastra](https://github.com/mastra-ai/mastra) (Observational Memory) | 22.9K | LongMemEval | 94.87% (gpt-5-mini) / 84.23% (gpt-4o) | No arXiv; eliminates retrieval via compression |
+| [Engram](https://github.com/Gentleman-Programming/engram) | 2.5K | LOCOMO | 80.0% accuracy, 93.6% fewer tokens | arXiv:2511.12960; most honest MCP-tier number |
+| [cognee](https://github.com/topoteretes/cognee) | 15.2K | HotPotQA (24 Q) | EM 0.5, F1 0.63 | Vendor blog; tiny sample |
+| [memobase](https://github.com/memodb-io/memobase) | 2.7K | LOCOMO | 0.7578 overall | Own repo docs |
+| [MemPalace](https://github.com/milla-jovovich/mempalace) | 44.1K | LongMemEval R@5 | 96.6% raw / 100% reranked | **Inflated** — 96.6% is plain ChromaDB verbatim, not the palace architecture (issue #214) |
+| [plastic-labs/honcho](https://github.com/plastic-labs/honcho) | 2.3K | — | none published | — |
+| [mcp-memory-service](https://github.com/doobidoo/mcp-memory-service) | 1.7K | LongMemEval R@5 | 86.0% session / 80.4% turn | **Reproducible scripts in repo** — closest apples-to-apples |
+| **wellinformed (this run)** | — | BEIR/HotPotQA | **96.8% NDCG@10, 100% R@5** | Mini-BEIR harness (15 passages, 10 queries), embedded in `npm test` |
+
+#### LOCOMO benchmark war (disclosure)
+
+mem0, Zep, memobase, Engram, and Letta all cite LOCOMO with **incompatible evaluation setups** — adversarial category inclusion, different system prompts, different LLM judges. **No single vendor's LOCOMO number can be taken at face value without independent replication.** The numbers above are the vendors' own claims, annotated with verification status.
+
+#### Known caveats on wellinformed's number
+
+- **Small sample:** 15 passages × 10 queries vs. LOCOMO's 1,540 questions or full BEIR HotPotQA's 5,183. The 96.8% reflects the embedding model working well on this specific passage set — not a SOTA claim on a shared leaderboard.
+- **Mid-tier embedding ceiling:** `all-MiniLM-L6-v2` places ~49-51 MTEB retrieval NDCG (vs BGE-Large 52.3, Cohere v4 53.7, Voyage-Large-2 54.8). The model choice is speed/size optimized; retrieval ceiling is lower than SOTA API embeddings.
+- **No published score on LOCOMO or LongMemEval or full BEIR** — would need adding to make a credible SOTA claim.
+
+#### Market niche wellinformed occupies alone
+
+No competitor in the table above combines **all five** of: (1) multi-source heterogeneous research ingestion (ArXiv/HN/RSS/URL/codebase/deps/git), (2) native MCP with 15 tools, (3) cross-domain tunnel discovery + recursive source expansion, (4) P2P knowledge sharing via libp2p + Y.js CRDT, (5) structured code graph indexing via tree-sitter. Every other tool ships 1-2 of these; wellinformed ships all five.
+
+#### Code intelligence (Phase 19 comparison)
+
+| Tool | Stars | Retrieval benchmark | Notes |
+|------|-------|---------------------|-------|
+| [Aider](https://github.com/Aider-AI/aider) | 43.3K | SWE-bench Lite 26.3% (2024) | Not retrieval — task completion |
+| [Continue.dev](https://github.com/continuedev/continue) | 32.5K | None published | Recommends voyage-code-3 |
+| [Sourcegraph SCIP](https://github.com/sourcegraph/scip) | 593 | None published | Protocol, not a tool |
+| [LanceDB](https://github.com/lancedb/lancedb) | 9.9K | ANN recall >0.95 on GIST-1M | Infrastructure, not code graph |
+| **wellinformed codebase** | — | (no standard benchmark) | 16,855 nodes, < 2 ms p99 search, tree-sitter TS/JS/Python |
+
+**No code intelligence tool in this category publishes NDCG / R@K retrieval numbers.** Aider reports SWE-bench (task completion, not retrieval). wellinformed's code graph has no direct apples-to-apples competitor with a published retrieval benchmark.
 
 ---
 
