@@ -104,6 +104,18 @@ Plans:
 3. `wellinformed codebase search <query>` returns code nodes by semantic match across attached codebases
 4. New MCP tool `code_graph_query` lets Claude query the structured code graph independently of research rooms
 
+## Phase 20: Session Persistence
+
+**Goal:** Auto-persist every Claude Code session's progress into wellinformed so context survives kills, crashes, and restarts. No explicit user request. The gap: Claude Code already writes session JSONL to `~/.claude/projects/<hash>/*.jsonl` but nothing reads it — so new sessions start blind. This phase closes that gap end-to-end.
+
+**Requirements:** SESS-01..08
+
+**Success criteria:**
+1. `~/.claude/projects/<hash>/*.jsonl` files are indexed automatically (via daemon tick) into a dedicated `sessions` room
+2. `wellinformed recent-sessions` CLI command shows last N sessions with duration, tool-call summary, and assistant-message highlights
+3. New MCP tool `recent_sessions(hours?, project?)` lets Claude query previous session state from any new session
+4. On SessionStart, the PreToolUse hook surfaces a one-paragraph "what the last session was doing" automatically — no explicit ask required
+
 ## Phase Summary
 
 | Phase | Name | Requirements | Success Criteria |
@@ -112,6 +124,7 @@ Plans:
 | 16 | Room Sharing (Y.js CRDT) | SHARE-01..06 (6) | 4 |
 | 17 | Federated Search + Discovery | FED-01..05, DISC-01..04 (9) | 4 |
 | 18 | Production Networking | NET-01..04 (4) | 4 |
+| 20 | Session Persistence | SESS-01..08 (8) | 4 |
 | 19 | Structured Codebase Indexing | CODE-01..08 (8) | 4 |
 | **Total** | | **38** | **20** |
 
