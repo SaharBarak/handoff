@@ -19,6 +19,7 @@ const target: RemoteTarget = {
   homePath: AbsolutePath('/home/ubuntu'),
   claudeCmd: 'claude',
   tmuxSession: 'handoff-overnight',
+  logDir: AbsolutePath('/home/ubuntu/.local/share/handoff'),
 };
 
 const session: ClaudeSession = {

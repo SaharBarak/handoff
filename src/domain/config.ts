@@ -2,17 +2,28 @@ import { z } from 'zod';
 import { err, ok, type Result } from 'neverthrow';
 import { AbsolutePath, type RemoteTarget } from './types.js';
 import type { HandoffError } from './errors.js';
+import {
+  RawOrchestratorSchema,
+  buildOrchestratorConfig,
+  buildWatchdogConfig,
+} from './orchestrator.js';
 
-const RemoteTargetSchema = z.object({
-  host: z.string().min(1, 'host required'),
-  projectPath: z.string().refine((p) => p.startsWith('/'), 'projectPath must be absolute'),
-  homePath: z
-    .string()
-    .refine((p) => p.startsWith('/'), 'homePath must be absolute')
-    .optional(),
-  claudeCmd: z.string().min(1).optional(),
-  tmuxSession: z.string().min(1).optional(),
-});
+const RemoteTargetSchema = z
+  .object({
+    host: z.string().min(1, 'host required'),
+    projectPath: z.string().refine((p) => p.startsWith('/'), 'projectPath must be absolute'),
+    homePath: z
+      .string()
+      .refine((p) => p.startsWith('/'), 'homePath must be absolute')
+      .optional(),
+    claudeCmd: z.string().min(1).optional(),
+    tmuxSession: z.string().min(1).optional(),
+    logDir: z
+      .string()
+      .refine((p) => p.startsWith('/'), 'logDir must be absolute')
+      .optional(),
+  })
+  .merge(RawOrchestratorSchema);
 
 export const ConfigSchema = z.object({
   defaultTarget: z.string().optional(),
@@ -39,6 +50,7 @@ export const parseConfig = (
   const targets: Record<string, RemoteTarget> = {};
   for (const [name, t] of Object.entries(parsed.data.targets)) {
     const homePath = t.homePath ?? deriveHomeFromHost(t.host);
+    const logDir = t.logDir ?? `${homePath}/.local/share/handoff`;
     targets[name] = {
       name,
       host: t.host,
@@ -46,6 +58,9 @@ export const parseConfig = (
       homePath: AbsolutePath(homePath),
       claudeCmd: t.claudeCmd ?? 'claude',
       tmuxSession: t.tmuxSession ?? `handoff-${name}`,
+      logDir: AbsolutePath(logDir),
+      orchestrator: buildOrchestratorConfig(t.orchestrator, homePath),
+      watchdog: buildWatchdogConfig(t.watchdog, homePath),
     };
   }
 

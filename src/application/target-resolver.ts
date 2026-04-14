@@ -21,13 +21,15 @@ export const resolveTarget = (
   selector: TargetSelector,
 ): Result<RemoteTarget, HandoffError> => {
   if (selector.explicitHost && selector.explicitPath) {
+    const home = deriveHome(selector.explicitHost);
     return ok({
       name: 'ad-hoc',
       host: selector.explicitHost,
       projectPath: AbsolutePath(selector.explicitPath),
-      homePath: AbsolutePath(deriveHome(selector.explicitHost)),
+      homePath: AbsolutePath(home),
       claudeCmd: 'claude',
       tmuxSession: 'handoff-adhoc',
+      logDir: AbsolutePath(`${home}/.local/share/handoff`),
     });
   }
 

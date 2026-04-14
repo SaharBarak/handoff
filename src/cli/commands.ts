@@ -70,7 +70,18 @@ const runHandoff = async (
   process.stdout.write(`\n  branch:    ${out.snapshot.branch}\n`);
   process.stdout.write(`  remote:    ${out.target.host}:${out.target.projectPath}\n`);
   process.stdout.write(`  session:   ${out.session.id}\n`);
-  process.stdout.write(`  attach:    ${out.tmuxAttachCommand}\n\n`);
+  process.stdout.write(`  attach:    ${out.tmuxAttachCommand}\n`);
+  if (out.target.orchestrator) {
+    process.stdout.write(
+      `  orch:      ssh -t ${out.target.host} tmux attach -t ${out.target.orchestrator.tmuxSession}\n`,
+    );
+  }
+  if (out.target.watchdog) {
+    process.stdout.write(
+      `  watchdog:  ssh -t ${out.target.host} tmux attach -t ${out.target.watchdog.tmuxSession}\n`,
+    );
+  }
+  process.stdout.write(`\n`);
   return 0;
 };
 
