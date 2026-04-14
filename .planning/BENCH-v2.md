@@ -73,12 +73,15 @@ Wave 2 lands **~2 points below the best dense-only encoders** at roughly equival
 
 ### Wave 2 — multi-dataset BEIR validation
 
-| Dataset | Corpus | Queries | NDCG@10 | R@5 | R@10 | MRR | Notes |
-|---------|--------|---------|---------|-----|------|-----|-------|
-| **SciFact** | 5,183 | 300 | **72.30%** | 79.76% | 84.79% | 0.690 | Hybrid wins big over dense (+2.32 over Wave 1) |
-| **NFCorpus** | 3,633 | 323 | **34.11%** | 12.82% | 15.85% | 0.539 | Wave 1 dense-only number; hybrid not yet re-run |
-| **ArguAna** | 8,674 | 1,406 | **37.36%** | 57.89% | 78.52% | 0.244 | ⚠ Hybrid REGRESSES vs dense-only (~50% per nomic tech report) — see caveat below |
-| **SciDocs** | 25,657 | 1,000 | **18.07%** | 13.29% | 18.78% | 0.316 | Hybrid ≈ dense (~20% per nomic). BM25 baseline 14.9, BGE-base ~21. |
+| Dataset | Corpus | Queries | NDCG@10 | R@5 | R@10 | MRR | Pipeline |
+|---------|--------|---------|---------|-----|------|-----|----------|
+| **SciFact** (Phase 21) | 5,183 | 300 | **72.90%** | 79.65% | 85.46% | 0.696 | Anserini-style BM25 + graded NDCG + query-length-gated hybrid |
+| **SciFact** (pre-Phase 21) | 5,183 | 300 | 72.30% | 79.76% | 84.79% | 0.690 | Buggy quoted-OR BM25, binary NDCG, no gate |
+| **NFCorpus** (pre-Phase 21) | 3,633 | 323 | 34.11% | 12.82% | 15.85% | 0.539 | Wave 1 dense-only; pending re-run |
+| **ArguAna** (pre-Phase 21) | 8,674 | 1,406 | 37.36% | 57.89% | 78.52% | 0.244 | Buggy hybrid regressed 13 pts vs dense — pending re-run |
+| **SciDocs** (pre-Phase 21) | 25,657 | 1,000 | 18.07% | 13.29% | 18.78% | 0.316 | Buggy hybrid ≈ dense — pending re-run with graded NDCG |
+
+**Phase 21 result on SciFact: +0.60 NDCG@10 lift from bench-truth fixes alone** (no encoder swap, no new model). BM25 latency dropped from 9 ms → **2 ms p50** (4.5× faster) because the FTS5 sanitizer no longer builds a 300-clause quoted-OR per query. Other 4 datasets are re-running; Phase 22 (encoder swap to bge-base-en-v1.5) is the next gate.
 
 **Caveat — Wave 2 hybrid is not universally better.** ArguAna is counter-argument retrieval where the "relevant" document for a query is the argument that *refutes* it. BM25 adds lexical similarity, which is **anti-helpful** for counter-argument tasks: the BM25 stage promotes documents that lexically match the query (i.e., make the *same* argument), not those that refute it. Pure nomic dense-only retrieval scores ~50.4% NDCG@10 on ArguAna (per the [nomic tech report Table 4](https://arxiv.org/abs/2402.01613)); our hybrid Wave 2 number is 12+ points below that. This is a measured honest negative — hybrid retrieval is task-dependent, and BEIR includes at least one task type (counter-argument) where it backfires.
 
