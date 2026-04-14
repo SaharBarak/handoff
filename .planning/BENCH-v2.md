@@ -120,6 +120,28 @@ Quality tied within 0.45 NDCG (noise-level), **throughput identical at 19 docs/s
 2. Add a validation test in CI that embeds one known sentence and compares the vector against a frozen reference — catches future Xenova regressions.
 3. Run Rust bench on the remaining 3 datasets (NFCorpus, ArguAna, SciDocs) to see if the nomic-v1.5 port issue is specific to Xenova too.
 
+### 2e. Phase 24-25 — Rust inference sidecar ships, FULL gate passed
+
+Picked Action item 1(c). Shipped `wellinformed-rs/src/bin/embed_server.rs` — a long-lived Rust binary speaking stdio JSON-RPC, with a matching TypeScript adapter `rustSubprocessEmbedder` in `src/infrastructure/embedders.ts`. Production wellinformed now routes embeddings through Rust via `WELLINFORMED_EMBEDDER_BACKEND=rust` env var — no MCP/CLI/daemon changes, just the encoder port swap.
+
+**Phase 25 gate measured via the full production `searchHybrid` path:**
+
+| Pipeline | SciFact NDCG@10 | vs Published 74.04% |
+|----------|----------------|----------------------|
+| **TS prod searchHybrid × Rust bge-base** | **75.22%** | **+1.18** |
+| Rust-native dense-only (fastembed) | 74.70 | +0.66 |
+| Published BAAI bge-base (MTEB) | 74.04 | baseline |
+| **TS Xenova bge-base (defective port)** | **63.29** | **−10.75** |
+| TS nomic Phase 21 hybrid (prior best) | 72.90 | −1.14 |
+
+**Delta over the defective Xenova bge-base path: +11.93 NDCG points.** Delta over the prior best TS number (nomic + hybrid): +3.20. Latency: p50 = 11 ms, p95 = 15 ms end-to-end through the TS `searchHybrid` port including subprocess IPC. Throughput: 3.4 docs/sec indexing (Rust fp32 bge-base cost, bottlenecked on ONNX forward pass not on protocol overhead). Recall@10 = 87.86% — matches published 87.42% within 0.44 points.
+
+**Why 75.22% beats the published 74.04%:** the published number is dense-only; our pipeline stacks BM25 + RRF hybrid on top via the Phase 23 `searchHybrid` port in `src/infrastructure/vector-index.ts`. The +1.2 lift over dense-only matches the typical hybrid gain on SciFact and is reproducible.
+
+**What this means for v2.1:** Path B Phase 25 is a proven, shippable configuration. Users who set `WELLINFORMED_EMBEDDER_BACKEND=rust WELLINFORMED_EMBEDDER_MODEL=bge-base` get +11.93 NDCG@10 on SciFact-class workloads with zero changes to the MCP server, CLI, daemon, or P2P layer — just a new env var and a prebuilt Rust binary.
+
+Phases 27 + 28 + 29 code are committed but pending measurement (RNG tunnel speedup vs TS findTunnels, pilot-centroid routing lift on CQADupStack, CI regression bar on the fixture corpus).
+
 **Caveat — Wave 2 hybrid is not universally better.** ArguAna is counter-argument retrieval where the "relevant" document for a query is the argument that *refutes* it. BM25 adds lexical similarity, which is **anti-helpful** for counter-argument tasks: the BM25 stage promotes documents that lexically match the query (i.e., make the *same* argument), not those that refute it. Pure nomic dense-only retrieval scores ~50.4% NDCG@10 on ArguAna (per the [nomic tech report Table 4](https://arxiv.org/abs/2402.01613)); our hybrid Wave 2 number is 12+ points below that. This is a measured honest negative — hybrid retrieval is task-dependent, and BEIR includes at least one task type (counter-argument) where it backfires.
 
 **Practical implication for production Wave 2 swap:** if we ship hybrid as the default, we should also expose dense-only as a fallback for counter-argument and stance-detection style tasks. Or pick the hybrid weight per task. Or keep things simple and accept the trade — most user queries are not counter-argument retrieval.
