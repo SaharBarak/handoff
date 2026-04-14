@@ -121,6 +121,139 @@ src/
 
 DDD layering with **neverthrow** `Result<T, HandoffError>` end-to-end — no exceptions cross layer boundaries. The orchestrator (`executeHandoff`) depends on a `HandoffPorts` interface so every infrastructure adapter can be substituted in tests. London-style mock-driven tests cover the orchestrator pipeline, with pure unit tests for slug logic, config parsing, and the remote bash script builder.
 
+## Telegram orchestrator & watchdog (optional)
+
+`handoff` can attach a Telegram-driven orchestrator and a push-notification watchdog to each handoff, so you can monitor and command your overnight sessions from your phone. It's built on top of **Anthropic's first-party Claude Code Channels** plugin (released March 2026), which means it works under your Pro/Max subscription with no separate API key and is fully sanctioned — no harness-detection risk.
+
+### Architecture
+
+Three tmux session types on the remote, coordinated through per-session log files:
+
+```
+Hetzner box
+├── handoff-<project>           work session: claude --resume <id> --dangerously-skip-permissions
+│     └── tmux pipe-pane → ~/.local/share/handoff/handoff-<project>.log
+├── handoff-orchestrator        claude --resume <orch-id> --channels plugin:telegram@... (start-once-reuse)
+│     └── interactive Telegram bot; inspects/commands other sessions via shell tools
+└── handoff-watchdog            pure bash daemon (no claude); tails the *.log files (start-once-reuse)
+      └── greps for patterns, posts matches to Telegram via curl
+```
+
+The orchestrator is a **single long-lived claude session** you create once on the remote and resume forever. It has shell access, so from Telegram you can ask it:
+
+- *"what's everyone working on?"* → it runs `tmux list-sessions` + `tmux capture-pane` on each
+- *"any errors in projectA?"* → it tails the log
+- *"tell projectB to roll back the last migration"* → it runs `tmux send-keys -t handoff-projectB "..." Enter`
+
+The watchdog is a dumb but reliable push-only layer: pattern-matching bash + `curl` to the Telegram Bot API. No LLM involvement, so it can't be rate-limited by your subscription.
+
+### One-time setup
+
+#### 1. Create the Telegram bot
+
+Message [@BotFather](https://t.me/BotFather) on Telegram → `/newbot` → follow prompts → save the token. Then message [@userinfobot](https://t.me/userinfobot) to get your numeric `chat_id`.
+
+#### 2. Put the secrets on the remote
+
+SSH into the box and write a permissions-restricted env file:
+
+```bash
+ssh hetzner
+mkdir -p ~/.config/handoff
+cat > ~/.config/handoff/secrets.env <<'EOF'
+HANDOFF_TG_TOKEN=123456:ABC-YourBotFatherToken
+HANDOFF_TG_CHAT_ID=987654321
+EOF
+chmod 600 ~/.config/handoff/secrets.env
+```
+
+#### 3. Authenticate Claude Code Channels on the remote (one-time, interactive)
+
+```bash
+# still SSHed in
+claude --channels plugin:telegram@claude-plugins-official
+# paste the BotFather token when prompted
+# verify on your phone by messaging the bot — it should answer
+```
+
+After this, the plugin config is cached in the remote's `~/.claude/` and subsequent non-interactive launches don't need the flag re-configured.
+
+#### 4. Create the dedicated orchestrator session (one-time)
+
+Still on the remote, start a fresh claude session that will *become* the orchestrator. Give it a system-level system prompt describing its role, let it acknowledge, then exit — the JSONL gets saved automatically, and you copy the session id out.
+
+```bash
+claude
+# In the session, type something like:
+#   "You are the handoff orchestrator. You manage all work sessions in tmux on
+#    this machine. When messaged via Telegram, you can use tmux capture-pane,
+#    tmux send-keys, and tail log files under ~/.local/share/handoff/ to
+#    inspect and command other claude work sessions. Acknowledge and wait."
+# Let claude respond, then /exit.
+
+# Find the session id:
+ls -t ~/.claude/projects/*/*.jsonl | head -1
+# the filename (minus .jsonl) is the session id
+```
+
+Copy that session id into your local handoff config.
+
+### Config
+
+Add an `orchestrator` block and optionally a `watchdog` block to your target in `~/.config/handoff/config.json`:
+
+```json
+{
+  "defaultTarget": "hetzner",
+  "targets": {
+    "hetzner": {
+      "host": "hetzner",
+      "projectPath": "/root/workspace/handoff",
+      "homePath": "/root",
+      "claudeCmd": "claude",
+      "tmuxSession": "handoff-hetzner",
+      "orchestrator": {
+        "sessionId": "7f3e2a8b-....-....-....-............"
+      },
+      "watchdog": {
+        "pollSeconds": 30,
+        "patterns": ["ERROR", "Failed", "Traceback", "✓ done"]
+      }
+    }
+  }
+}
+```
+
+All orchestrator/watchdog fields except `sessionId` are optional. Defaults:
+
+| field | default |
+|---|---|
+| `orchestrator.channelsPlugin` | `plugin:telegram@claude-plugins-official` |
+| `orchestrator.tmuxSession` | `handoff-orchestrator` |
+| `orchestrator.secretsFile` | `<homePath>/.config/handoff/secrets.env` |
+| `watchdog.tmuxSession` | `handoff-watchdog` |
+| `watchdog.logDir` | `<homePath>/.local/share/handoff` |
+| `watchdog.pollSeconds` | `30` |
+| `watchdog.patterns` | `["ERROR","Failed","FAIL","✓ done","✗","Traceback"]` |
+| `watchdog.tokenEnvVar` | `HANDOFF_TG_TOKEN` |
+| `watchdog.chatIdEnvVar` | `HANDOFF_TG_CHAT_ID` |
+
+### Lifecycle
+
+- **Work sessions** are killed and replaced on every handoff (same as before).
+- **Orchestrator and watchdog use start-once-reuse**: the first handoff spins them up, subsequent handoffs to the same target leave them running. The orchestrator accumulates context about your projects over time; the watchdog keeps file-offset state in `<logDir>/.watchdog/` so it doesn't re-report old matches after a restart.
+- To force a restart: `ssh hetzner tmux kill-session -t handoff-orchestrator` (or `handoff-watchdog`) — next handoff will recreate.
+
+### Attach commands
+
+`handoff` prints the attach command for each active tmux session at the end of a run:
+
+```
+  attach:    ssh -t hetzner tmux attach -t handoff-hetzner
+  orch:      ssh -t hetzner tmux attach -t handoff-orchestrator
+  watchdog:  ssh -t hetzner tmux attach -t handoff-watchdog
+```
+
 ## Caveats
 
 - **Slug mismatch is intentional.** Claude resolves session files via `~/.claude/projects/<cwd-slug>/<id>.jsonl`. The local slug (`-Users-you-...`) differs from the remote slug (`-home-you-...`) because `$HOME` differs. We ship the JSONL to the **remote** slug directory and launch claude from the matching cwd, so `--resume` finds it.

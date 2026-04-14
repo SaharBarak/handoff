@@ -23,6 +23,9 @@ export interface RemoteTarget {
   readonly claudeCmd: string;
   readonly tmuxSession: string;
   readonly homePath: AbsolutePath;
+  readonly orchestrator?: import('./orchestrator.js').OrchestratorConfig;
+  readonly watchdog?: import('./orchestrator.js').WatchdogConfig;
+  readonly logDir: AbsolutePath;
 }
 
 export interface ClaudeSession {
