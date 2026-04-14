@@ -16,7 +16,7 @@ import { createSshTransport } from '../infrastructure/ssh-transport.js';
 import { launchRemote } from '../infrastructure/remote-launcher.js';
 import { executeHandoff, type HandoffPorts } from '../application/handoff.js';
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 
 const buildPorts = (verbose: boolean): HandoffPorts => ({
   logger: createLogger(verbose),
