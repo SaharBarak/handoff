@@ -1,0 +1,12 @@
+{
+  "defaultTarget": "overnight",
+  "targets": {
+    "overnight": {
+      "host": "ubuntu@my-remote.example.com",
+      "projectPath": "/home/ubuntu/workspace/handoff",
+      "homePath": "/home/ubuntu",
+      "claudeCmd": "claude",
+      "tmuxSession": "handoff-overnight"
+    }
+  }
+}
