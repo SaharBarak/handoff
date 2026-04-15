@@ -254,6 +254,147 @@ All orchestrator/watchdog fields except `sessionId` are optional. Defaults:
   watchdog:  ssh -t hetzner tmux attach -t handoff-watchdog
 ```
 
+## Deploying to a fresh Hetzner (or any Linux) box — the hard-won playbook
+
+This section documents every real footgun we hit taking the CLI from "tests pass" to "end-to-end Telegram loop working on a real box." Read it before attempting the setup on a new machine — it will save you several hours.
+
+### 1. Run claude as a **non-root** user
+
+Anthropic blocks `--dangerously-skip-permissions` when running as root:
+
+```
+--dangerously-skip-permissions cannot be used with root/sudo privileges for security reasons
+```
+
+Create a dedicated user and do **all** handoff setup under that user:
+
+```bash
+useradd -m -s /bin/bash handoff
+loginctl enable-linger handoff   # persistent tmux across login sessions
+```
+
+### 2. Skip the first-run onboarding wizard
+
+A fresh `handoff` user hits a mandatory interactive wizard on first launch: theme picker → login method → folder trust → MCP server → bypass permissions acceptance. The **hidden flag** that skips the theme + login pickers:
+
+```bash
+python3 -c "
+import json
+p = '/home/handoff/.claude.json'
+d = json.load(open(p)) if __import__('os').path.exists(p) else {}
+d['hasCompletedOnboarding'] = True
+json.dump(d, open(p, 'w'))
+"
+chmod 600 /home/handoff/.claude.json
+```
+
+Per-project trust, MCP server, and bypass acceptance still prompt once. Use `tmux send-keys` to click through them the first time a project is handed off:
+
+```bash
+tmux send-keys -t handoff-<target> Enter   # accept folder trust
+tmux send-keys -t handoff-<target> "3" Enter   # skip MCP server
+tmux send-keys -t handoff-<target> "2" Enter   # accept bypass permissions mode
+```
+
+After that the project is remembered and subsequent handoffs launch cleanly.
+
+### 3. OAuth on headless — the `cli.js` patch
+
+Claude Code's OAuth flow auto-detects "no browser" and switches to a manual-paste mode that **does not work** over remote sessions:
+
+- Authorize URL has `redirect_uri=https://platform.claude.com/oauth/code/callback`
+- Manual-paste input via TUI can't be driven reliably by `tmux send-keys` or `expect`
+- `claude auth login --claudeai` + curl of the local `/callback` endpoint returns `400 Login failed: Invalid state parameter` due to a `redirect_uri` mismatch between the authorize URL (manual path) and the local callback handler (localhost path)
+
+**The fix**: one-line patch to the installed `cli.js` forces the local-callback code path:
+
+```bash
+sudo sed -i 's/redirect_uri:Y?n7()\.MANUAL_REDIRECT_URL:/redirect_uri:false?n7().MANUAL_REDIRECT_URL:/g' \
+  /usr/lib/node_modules/@anthropic-ai/claude-code/cli.js
+# Also the authorize URL builder:
+sudo sed -i 's/,z?n7()\.MANUAL_REDIRECT_URL:/,false?n7().MANUAL_REDIRECT_URL:/g' \
+  /usr/lib/node_modules/@anthropic-ai/claude-code/cli.js
+```
+
+Then set up an SSH port-forward from your Mac to the remote so the browser redirect reaches the remote claude's local HTTP listener:
+
+```bash
+# on the remote, start auth and read the random port
+ssh handoff@remote 'tmux new-session -d -s auth -x 400 -y 50 "claude auth login --claudeai > /tmp/hclog.txt 2>&1"; sleep 3; ss -tlnp | grep claude'
+# note the port, e.g., 38179
+
+# from your Mac, open the SSH tunnel
+ssh -f -N -L 38179:localhost:38179 handoff@remote
+
+# then open the authorize URL in your browser (printed in /tmp/hclog.txt)
+# browser redirects to http://localhost:38179/callback?code=...&state=...
+# tunnel forwards it to the remote claude process
+# claude writes credentials.json, exits, you're logged in
+```
+
+**Don't probe the local callback endpoint** with a test request — the callback is one-shot and the state check will fail for the real browser request afterward.
+
+**Don't transplant `~/.claude/.credentials.json` from another machine.** It works for ~15 minutes until the access token expires, then auto-refresh fails with 401 because refresh tokens are device/session-bound. Proper native OAuth on the remote is the only path.
+
+This is a monkey-patch. Every claude-code update will overwrite it. Long-term solution is for Anthropic to ship a `--oauth-port` flag or a device-code flow. Until then, reapply the patch after every `npm install -g @anthropic-ai/claude-code`.
+
+### 4. Bun must be in the target user's PATH
+
+The Telegram Channels plugin requires `bun` as a subprocess. If it's installed under `/root/.bun/` it's inaccessible to the handoff user. Install globally:
+
+```bash
+curl -fsSL https://bun.sh/install | bash
+sudo mv /root/.bun /opt/bun
+sudo chown -R root:root /opt/bun && sudo chmod -R a+rX /opt/bun
+sudo ln -sf /opt/bun/bin/bun /usr/local/bin/bun
+```
+
+### 5. Reinstall plugins after a user migration
+
+`~/.claude/plugins/installed_plugins.json` hardcodes install paths (`/root/.claude/...`). If you copy `.claude` between users, plugin resolution breaks silently (`Plugin telegram not found in marketplace`). Always reinstall per user:
+
+```bash
+sudo -u handoff bash -c '
+rm -rf /home/handoff/.claude/plugins
+claude plugin marketplace add anthropics/claude-plugins-official
+claude plugin install telegram@claude-plugins-official
+'
+```
+
+### 6. Bot access via `access.json` (skip the pairing dance)
+
+The Telegram Channels plugin defaults to `dmPolicy: "pairing"` — nobody can DM the bot until they pair via the `/telegram:access pair <code>` slash command typed inside the orchestrator TUI. For a single-user setup, write the allowlist directly:
+
+```bash
+cat > /home/handoff/.claude/channels/telegram/access.json <<EOF
+{
+  "dmPolicy": "allowlist",
+  "allowFrom": ["<your-telegram-user-id>"],
+  "groups": {},
+  "pending": {},
+  "mentionPatterns": []
+}
+EOF
+chmod 600 /home/handoff/.claude/channels/telegram/access.json
+```
+
+Your numeric Telegram user ID comes from [@userinfobot](https://t.me/userinfobot).
+
+### 7. Watchdog false-positive defense
+
+Claude Code's status bar repeatedly redraws `✗ Auto-update failed · Try claude doctor or npm i -g @anthropic-ai/claude-code`. The default pattern list used to include `✗` — which matched the banner on every redraw and spammed Telegram. The current defaults are narrower (`ERROR|Traceback|FATAL|panic:|segfault`) and the script supports:
+
+- `HANDOFF_WATCH_EXCLUDE` env var (default `Auto-update|auto-update|npm install|npm i -g`) — regex of lines to exclude even if they match a pattern
+- `HANDOFF_DEDUPE_SECONDS` env var (default 300) — suppress resending identical hit content within the window, tracked via sha1 hash in `<logDir>/.watchdog/<name>.<hash>.sent`
+
+If you add new patterns to your config, watch the first few hours of real logs and tune the `patterns` and exclude list until Telegram is quiet unless something genuinely broke.
+
+### 8. Per-project setup on first handoff
+
+The first handoff to a project requires you to click through three one-time prompts via `tmux send-keys`: folder trust, MCP server (`3. Continue without`), and bypass permissions (`2. Yes, I accept`). After that the project state is remembered and subsequent handoffs to the same target launch cleanly.
+
+---
+
 ## Caveats
 
 - **Slug mismatch is intentional.** Claude resolves session files via `~/.claude/projects/<cwd-slug>/<id>.jsonl`. The local slug (`-Users-you-...`) differs from the remote slug (`-home-you-...`) because `$HOME` differs. We ship the JSONL to the **remote** slug directory and launch claude from the matching cwd, so `--resume` finds it.
