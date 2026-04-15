@@ -29,9 +29,11 @@ LOG_DIR="\${HANDOFF_LOG_DIR:?HANDOFF_LOG_DIR required}"
 TOKEN="\${HANDOFF_TG_TOKEN:?HANDOFF_TG_TOKEN required}"
 CHAT_ID="\${HANDOFF_TG_CHAT_ID:?HANDOFF_TG_CHAT_ID required}"
 POLL="\${HANDOFF_WATCH_POLL:-30}"
-PATTERNS_RE="\${HANDOFF_WATCH_PATTERNS:-ERROR|Failed|FAIL|✗|Traceback}"
+PATTERNS_RE="\${HANDOFF_WATCH_PATTERNS:-ERROR|Traceback|FATAL|panic:|segfault}"
+EXCLUDE_RE="\${HANDOFF_WATCH_EXCLUDE:-Auto-update|auto-update|npm install|npm i -g}"
 MIN_SEND_GAP="\${HANDOFF_MIN_SEND_GAP:-2}"
 MAX_CHARS=3800
+DEDUPE_SECONDS="\${HANDOFF_DEDUPE_SECONDS:-300}"
 STATE_DIR="\${LOG_DIR}/.watchdog"
 LAST_SENT_FILE="\${STATE_DIR}/.last_sent"
 mkdir -p "\$STATE_DIR"
@@ -108,12 +110,22 @@ while true; do
     fi
     if (( cur > last )); then
       delta=\$(tail -c "+\$(( last + 1 ))" "\$log" | strip_ansi)
-      hits=\$(printf '%s\\n' "\$delta" | grep -E "\$PATTERNS_RE" | head -20 || true)
+      hits=\$(printf '%s\\n' "\$delta" | grep -E "\$PATTERNS_RE" | grep -vE "\$EXCLUDE_RE" | sort -u | head -20 || true)
       if [[ -n "\$hits" ]]; then
-        escaped=\$(printf '%s' "\$hits" | html_escape)
-        name_escaped=\$(printf '%s' "\$name" | html_escape)
-        body=\$(printf '<b>%s</b>\\n<pre>%s</pre>' "\$name_escaped" "\$(truncate_body "\$escaped")")
-        send "\$body"
+        # Deduplicate: hash the hits and skip if we sent the same content recently
+        hit_hash=\$(printf '%s' "\$hits" | sha1sum | cut -c1-16)
+        dedupe_file="\${STATE_DIR}/\${name}.\${hit_hash}.sent"
+        now_ts=\$(date +%s)
+        last_sent=\$(cat "\$dedupe_file" 2>/dev/null || echo 0)
+        if (( now_ts - last_sent > DEDUPE_SECONDS )); then
+          escaped=\$(printf '%s' "\$hits" | html_escape)
+          name_escaped=\$(printf '%s' "\$name" | html_escape)
+          body=\$(printf '<b>%s</b>\\n<pre>%s</pre>' "\$name_escaped" "\$(truncate_body "\$escaped")")
+          send "\$body"
+          printf '%s' "\$now_ts" > "\$dedupe_file"
+          # Clean old dedupe files (older than DEDUPE_SECONDS * 2) to avoid unbounded growth
+          find "\$STATE_DIR" -maxdepth 1 -name "*.sent" -type f -mmin +\$(( DEDUPE_SECONDS / 30 )) -delete 2>/dev/null || true
+        fi
       fi
       POSITIONS["\$name"]="\$cur"
       printf '%s' "\$cur" > "\$pos_file"
