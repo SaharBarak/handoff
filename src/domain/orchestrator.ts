@@ -55,7 +55,7 @@ export const RawOrchestratorSchema = z
 export type RawOrchestratorBlock = z.infer<typeof RawOrchestratorSchema>;
 
 const DEFAULT_CHANNELS_PLUGIN = 'plugin:telegram@claude-plugins-official';
-const DEFAULT_PATTERNS = ['ERROR', 'Failed', 'FAIL', '✓ done', '✗', 'Traceback'];
+const DEFAULT_PATTERNS = ['ERROR', 'Traceback', 'FATAL', 'panic:', 'segfault'];
 const DEFAULT_POLL_SECONDS = 30;
 
 export const buildOrchestratorConfig = (
